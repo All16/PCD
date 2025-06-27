@@ -73,5 +73,3 @@ if [ ! -f "./bin/client_user" ]; then
     exit 1
   fi
 fi
-nohup ./bin/client_user > logs/client_user.log 2>&1 &
-echo "[CLIENT_USER] Clientul user rulează în background. Log: logs/client_user.log"

@@ -17,4 +17,5 @@ $(BIN_DIR)/server: server/main.c \
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f $(BIN_DIR)/server
+	rm -f $(BIN_DIR)/server \
+    rm -f $(BIN_DIR)/client_user
