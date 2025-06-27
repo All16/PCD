@@ -41,7 +41,17 @@ void process_job(const char *job_type, const char *input, const char *output, co
     } else if (strcmp(job_type, "convert") == 0) {
         log_message("PROC", "Execut convert %s -> %s (format %s)", input_path, output_path, extra);
         ffmpeg_convert(input_path, extra, output_path);
+    }else if (strcmp(job_type, "concat") == 0) {
+    char file1[128], file2[128];
+    if (sscanf(extra, "%127s %127s", file1, file2) == 2) {
+        char path1[256], path2[256];
+        snprintf(path1, sizeof(path1), "videos/incoming/%s", file1);
+        snprintf(path2, sizeof(path2), "videos/incoming/%s", file2);
+        ffmpeg_concat(path1, path2, output);
     } else {
+        fprintf(stderr, "[PROC] Format invalid pentru concat.\n");
+    }
+}      else {
         log_message("ERROR", "Tip job necunoscut: %s", job_type);
     }
 }

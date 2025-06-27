@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <linux/limits.h>
 
 #define COMMAND_BUFFER_SIZE 512
 
@@ -36,7 +37,7 @@ int ffmpeg_extract_audio(const char* input, const char* output) {
 
     char command[512];
     snprintf(command, sizeof(command),
-        "ffmpeg -y -i \"%s\" -vn -acodec mp3 \"%s\"",
+        "ffmpeg -y -i \"%s\" -vn -acodec libmp3lame -q:a 2 \"%s\"",
         input, output);
 
     fprintf(stderr, "[FFMPEG_WRAPPER] Execut: %s\n", command);
@@ -71,3 +72,28 @@ int ffmpeg_convert(const char* input, const char* format, const char* output_bas
 
     return result;
 }
+
+int ffmpeg_concat(const char* input1, const char* input2, const char* output) {
+    char cmd[1024];
+
+    // Pas 1: Convertim fiecare input într-un fișier .ts temporar
+    char temp1[] = "temp1.ts";
+    char temp2[] = "temp2.ts";
+
+    snprintf(cmd, sizeof(cmd),
+        "ffmpeg -y -i \"%s\" -c:v libx264 -preset ultrafast -crf 23 -c:a aac -f mpegts \"%s\" && "
+        "ffmpeg -y -i \"%s\" -c:v libx264 -preset ultrafast -crf 23 -c:a aac -f mpegts \"%s\" && "
+        // Pas 2: Concatenăm cele două fișiere .ts într-un mp4 final
+        "ffmpeg -y -i \"concat:%s|%s\" -c copy -bsf:a aac_adtstoasc \"%s\" && "
+        // Pas 3: Ștergem fișierele temporare
+        "rm -f \"%s\" \"%s\"",
+        input1, temp1,
+        input2, temp2,
+        temp1, temp2, output,
+        temp1, temp2
+    );
+
+    printf("[FFMPEG] Execut: %s\n", cmd);
+    return system(cmd);
+}
+

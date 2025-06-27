@@ -6,7 +6,8 @@ void print_menu() {
     printf("\n===== CLIENT USER =====\n");
     printf("1. Trimite comandă (cut)\n");
     printf("2. Extrage audio (REST)\n");
-    printf("3. Exit\n");
+    printf("3. Concatenare video (REST)\n");
+    printf("0. Exit\n");
     printf("=======================\n");
     printf("Alege opțiunea: ");
 }

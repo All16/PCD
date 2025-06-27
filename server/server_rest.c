@@ -244,7 +244,51 @@ if (strcmp(method, "POST") == 0 && strcmp(url, "/extract_audio") == 0) {
     memset(&job, 0, sizeof(Job));
     snprintf(job.command, sizeof(job.command), "extract_audio");
     snprintf(job.input_file, sizeof(job.input_file), "videos/incoming/%s", filename);
-    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/audio_%s", filename);
+    char base_name[128] = {0};
+    strncpy(base_name, filename, sizeof(base_name) - 1);
+    char *dot = strrchr(base_name, '.');
+    if (dot) *dot = '\0';
+    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/%s.mp3", base_name);
+
+    job.client_socket = -1;
+
+    job_queue_enqueue(job);
+    json_object_put(json);
+
+    const char *ok = "{\"status\": \"accepted\"}";
+    struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
+    int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
+    MHD_destroy_response(resp);
+    return ret;
+}
+
+if (strcmp(method, "POST") == 0 && strcmp(url, "/concat") == 0) {
+    struct json_object *json = json_tokener_parse(info->buffer);
+
+    if (!json) {
+        const char *err = "{\"error\": \"Invalid JSON\"}";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+        MHD_destroy_response(resp);
+        return ret;
+    }
+
+    const char* file1 = json_object_get_string(json_object_object_get(json, "file1"));
+    const char* file2 = json_object_get_string(json_object_object_get(json, "file2"));
+    if (!file1 || !file2) {
+        json_object_put(json);
+        const char *err = "{\"error\": \"Missing parameters\"}";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+        MHD_destroy_response(resp);
+        return ret;
+    }
+
+    Job job;
+    memset(&job, 0, sizeof(Job));
+    snprintf(job.command, sizeof(job.command), "concat");
+    snprintf(job.args, sizeof(job.args), "%s %s", file1, file2);
+    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/concat_%s", file1);
     job.client_socket = -1;
 
     job_queue_enqueue(job);

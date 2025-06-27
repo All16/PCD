@@ -36,8 +36,8 @@ int main() {
     printf("[CLIENT] Conectat la serverul V-Edit.\n");
 
     int opt;
-    char input[256], start[64], end[64];
-    char buffer[512];
+    char input[256], input2[256], start[64], end[64];
+    char buffer[1024];
 
     while (1) {
         print_menu();
@@ -48,18 +48,31 @@ int main() {
             get_user_input(input, sizeof(input), "Nume fișier (ex: test.mp4): ");
             get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
             get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
-            char cmd[512];
-            snprintf(cmd, sizeof(cmd), "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py cut %s %s %s", input, start, end);
-            system(cmd);
-        } if (opt == 2) {
+            snprintf(buffer, sizeof(buffer), 
+                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py cut %s %s %s",
+                input, start, end);
+            system(buffer);
+        } 
+        else if (opt == 2) {
             get_user_input(input, sizeof(input), "Nume fișier (ex: test.mp4): ");
-            char cmd[512];
-            snprintf(cmd, sizeof(cmd), "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py extract_audio %s", input);
-            system(cmd);
-        } else if (opt == 3) {
+            snprintf(buffer, sizeof(buffer), 
+                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py extract_audio %s",
+                input);
+            system(buffer);
+        }
+        else if (opt == 3) {
+            get_user_input(input, sizeof(input), "Primul fișier video (ex: a.mp4): ");
+            get_user_input(input2, sizeof(input2), "Al doilea fișier video (ex: b.mp4): ");
+            snprintf(buffer, sizeof(buffer),
+                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py concat %s %s",
+                input, input2);
+            system(buffer);
+        } 
+        else if (opt == 0) {
             printf("[CLIENT] Deconectare...\n");
             break;
-        } else {
+        } 
+        else {
             printf("Opțiune invalidă.\n");
         }
     }

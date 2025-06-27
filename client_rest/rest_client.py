@@ -44,6 +44,15 @@ def main():
         }
         result = send_request("convert", data)
 
+    elif operation == "concat" and len(sys.argv) == 4:
+        file1 = os.path.basename(sys.argv[2])
+        file2 = os.path.basename(sys.argv[3])
+        data = {
+            "file1": file1,
+            "file2": file2
+        }
+        result = send_request("concat", data)
+
     else:
         print("Invalid arguments.")
         return
