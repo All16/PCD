@@ -62,6 +62,21 @@ def main():
             "resolution": resolution
         }
         result = send_request("change_resolution", data)
+    elif operation == "cut_except" and len(sys.argv) == 5:
+        filename = os.path.basename(sys.argv[2])
+        start_cut = sys.argv[3]
+        end_cut = sys.argv[4]
+        if start_cut >= end_cut:
+            a = end_cut,
+            end_cut=start_cut,
+            start_cut = a
+            
+        data = {
+            "filename": filename,
+            "start": start_cut,
+            "end": end_cut
+        }
+        result = send_request("cut_except", data)
 
     else:
         print("Invalid arguments.")

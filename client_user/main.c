@@ -77,8 +77,16 @@ int main() {
                 "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py change_resolution %s %s %s",
                 input, width, height);
             system(buffer);
-}
-
+        }
+        else if (opt == 5) {
+            get_user_input(input, sizeof(input), "Nume fișier (ex: test.mp4): ");
+            get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
+            get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
+            snprintf(buffer, sizeof(buffer), 
+                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py cut_except %s %s %s",
+                input, start, end);
+            system(buffer);
+        }
         else if (opt == 0) {
             printf("[CLIENT] Deconectare...\n");
             break;

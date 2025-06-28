@@ -116,3 +116,19 @@ int ffmpeg_change_resolution(const char* input, const char* resolution, const ch
     fprintf(stderr, "[FFMPEG_WRAPPER] Execut: %s\n", command);
     return system(command);
 }
+
+int ffmpeg_cut_out(const char* input, const char* start, const char* end, const char* output) {
+    char cmd[1024];
+
+    snprintf(cmd, sizeof(cmd),
+        "ffmpeg -y -i \"%s\" -ss 0 -to %s -c copy part1.mp4 && "
+        "ffmpeg -y -i \"%s\" -ss %s -c copy part2.mp4 && "
+        "echo \"file 'part1.mp4'\" > parts.txt && "
+        "echo \"file 'part2.mp4'\" >> parts.txt && "
+        "ffmpeg -y -f concat -safe 0 -i parts.txt -c copy \"%s\" && "
+        "rm -f part1.mp4 part2.mp4 parts.txt",
+        input, start, input, end, output);
+
+    fprintf(stderr, "[FFMPEG] Execut: %s\n", cmd);
+    return system(cmd);
+}

@@ -340,7 +340,34 @@ if (strcmp(method, "POST") == 0 && strcmp(url, "/change_resolution") == 0) {
     MHD_destroy_response(resp);
     return ret;
 }
+if (strcmp(method, "POST") == 0 && strcmp(url, "/cut_out") == 0) {
+    struct json_object *json = json_tokener_parse(info->buffer);
+    if (!json) { /*... handle error ...*/ }
 
+    const char *filename = json_object_get_string(json_object_object_get(json, "filename"));
+    const char *start = json_object_get_string(json_object_object_get(json, "start"));
+    const char *end = json_object_get_string(json_object_object_get(json, "end"));
+    if (!filename || !start || !end) { /*... handle error ...*/ }
+
+    Job job;
+    memset(&job, 0, sizeof(Job));
+    snprintf(job.command, sizeof(job.command), "cut_out");
+    snprintf(job.input_file, sizeof(job.input_file), "videos/incoming/%s", filename);
+    snprintf(job.args, sizeof(job.args), "%s %s", start, end);
+    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/cutout_%s", filename);
+    job.client_socket = -1;
+
+    job_queue_enqueue(job);
+    json_object_put(json);
+
+    const char *ok = "{\"status\": \"accepted\"}";
+    struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
+    int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
+    MHD_destroy_response(resp);
+    return ret;
+}
+
+// Dacă nu s-a potrivit niciun URL, returnăm 404
 const char *msg = "404 Not Found";
 struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
 int ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, resp);

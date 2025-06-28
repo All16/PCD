@@ -8,6 +8,7 @@ void print_menu() {
     printf("2. Extrage audio (REST)\n");
     printf("3. Concatenare video (REST)\n");
     printf("4. Schimbă rezoluția video (REST)\n");
+    printf("5. Scoate o porțiune (cut_except)\n");
     printf("0. Exit\n");
     printf("=======================\n");
     printf("Alege opțiunea: ");

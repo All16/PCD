@@ -63,6 +63,15 @@ void process_job(const char *job_type, const char *input, const char *output, co
             fprintf(stderr, "[PROC] Eroare la schimbarea rezoluției pentru %s\n", input_path);
         }
     }
+    else if (strcmp(job_type, "cut_out") == 0) {
+    char start[64], end[64];
+    if (sscanf(extra, "%63s %63s", start, end) != 2) {
+        fprintf(stderr, "[PROC] Format invalid pentru 'cut_out'. Așteptat: start end\n");
+        return;
+    }
+    log_message("PROC", "Execut cut_out %s -> %s [fără %s–%s]", input_path, output_path, start, end);
+    ffmpeg_cut_out(input_path, start, end, output_path);
+    }
     else {
         log_message("ERROR", "Tip job necunoscut: %s", job_type);
     }
