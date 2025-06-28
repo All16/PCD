@@ -4,7 +4,7 @@
 
 void print_menu() {
     printf("\n===== CLIENT USER =====\n");
-    printf("1. Trimite comandă (cut)\n");
+    printf("1. Extrage clip (clip)\n");
     printf("2. Extrage audio (REST)\n");
     printf("3. Concatenare video (REST)\n");
     printf("4. Schimbă rezoluția video (REST)\n");
