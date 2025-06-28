@@ -3,13 +3,13 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <linux/limits.h>
 
 #include "../include/job_queue.h"
 #include "../include/ffmpeg_wrapper.h"
 #include "../include/common.h"
-#include <linux/limits.h>
+
 extern volatile sig_atomic_t running;
-#include <string.h>
 
 void process_job(const char *job_type, const char *input, const char *output, const char *extra) {
     char input_path[PATH_MAX];
@@ -35,23 +35,35 @@ void process_job(const char *job_type, const char *input, const char *output, co
         }
         log_message("PROC", "Execut cut %s -> %s [%s to %s]", input_path, output_path, start, end);
         ffmpeg_cut(input_path, start, end, output_path);
-    } else if (strcmp(job_type, "extract_audio") == 0) {
+    }
+    else if (strcmp(job_type, "extract_audio") == 0) {
         log_message("PROC", "Execut extract_audio %s -> %s", input_path, output_path);
         ffmpeg_extract_audio(input_path, output_path);
-    } else if (strcmp(job_type, "convert") == 0) {
+    }
+    else if (strcmp(job_type, "convert") == 0) {
         log_message("PROC", "Execut convert %s -> %s (format %s)", input_path, output_path, extra);
         ffmpeg_convert(input_path, extra, output_path);
-    }else if (strcmp(job_type, "concat") == 0) {
-    char file1[128], file2[128];
-    if (sscanf(extra, "%127s %127s", file1, file2) == 2) {
-        char path1[256], path2[256];
-        snprintf(path1, sizeof(path1), "videos/incoming/%s", file1);
-        snprintf(path2, sizeof(path2), "videos/incoming/%s", file2);
-        ffmpeg_concat(path1, path2, output);
-    } else {
-        fprintf(stderr, "[PROC] Format invalid pentru concat.\n");
     }
-}      else {
+    else if (strcmp(job_type, "concat") == 0) {
+        char file1[128], file2[128];
+        if (sscanf(extra, "%127s %127s", file1, file2) == 2) {
+            char path1[256], path2[256];
+            snprintf(path1, sizeof(path1), "/home/User/Desktop/Proiect/videos/incoming/%s", file1);
+            snprintf(path2, sizeof(path2), "/home/User/Desktop/Proiect/videos/incoming/%s", file2);
+            log_message("PROC", "Execut concat %s + %s -> %s", path1, path2, output_path);
+            ffmpeg_concat(path1, path2, output_path);
+        } else {
+            fprintf(stderr, "[PROC] Format invalid pentru concat.\n");
+        }
+    }
+    else if (strcmp(job_type, "change_resolution") == 0) {
+        log_message("PROC", "Execut change_resolution %s -> %s (rezoluție %s)", input_path, output_path, extra);
+        int ret = ffmpeg_change_resolution(input_path, extra, output_path);
+        if (ret != 0) {
+            fprintf(stderr, "[PROC] Eroare la schimbarea rezoluției pentru %s\n", input_path);
+        }
+    }
+    else {
         log_message("ERROR", "Tip job necunoscut: %s", job_type);
     }
 }

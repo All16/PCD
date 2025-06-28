@@ -52,6 +52,14 @@ def main():
             "file2": file2
         }
         result = send_request("concat", data)
+    elif operation == "change_resolution" and len(sys.argv) == 5:
+        filename = os.path.basename(sys.argv[2])
+        data = {
+        "filename": filename,
+        "width": sys.argv[3],
+        "height": sys.argv[4]
+        }
+        result = send_request("change_resolution", data)
 
     else:
         print("Invalid arguments.")

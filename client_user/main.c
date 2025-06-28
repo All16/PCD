@@ -61,13 +61,24 @@ int main() {
             system(buffer);
         }
         else if (opt == 3) {
-            get_user_input(input, sizeof(input), "Primul fișier video (ex: a.mp4): ");
-            get_user_input(input2, sizeof(input2), "Al doilea fișier video (ex: b.mp4): ");
+            get_user_input(input, sizeof(input), "Primul fișier video (ex: test.mp4): ");
+            get_user_input(input2, sizeof(input2), "Al doilea fișier video (ex: test1.mp4): ");
             snprintf(buffer, sizeof(buffer),
                 "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py concat %s %s",
                 input, input2);
             system(buffer);
         } 
+        else if (opt == 4) {
+            get_user_input(input, sizeof(input), "Nume fișier (ex: test.mp4): ");
+            char width[16], height[16];
+            get_user_input(width, sizeof(width), "Lățime (ex: 640): ");
+            get_user_input(height, sizeof(height), "Înălțime (ex: 360): ");
+            snprintf(buffer, sizeof(buffer), 
+                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py change_resolution %s %s %s",
+                input, width, height);
+            system(buffer);
+}
+
         else if (opt == 0) {
             printf("[CLIENT] Deconectare...\n");
             break;

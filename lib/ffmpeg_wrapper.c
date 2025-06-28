@@ -4,7 +4,7 @@
 #include <string.h>
 #include <linux/limits.h>
 
-#define COMMAND_BUFFER_SIZE 512
+#define COMMAND_BUFFER_SIZE 2048  // Mărit pentru a preveni trunchieri
 
 int ffmpeg_cut(const char* input, const char* start, const char* end, const char* output) {
     if (!input || !start || !end || !output) {
@@ -35,7 +35,7 @@ int ffmpeg_extract_audio(const char* input, const char* output) {
         return -1;
     }
 
-    char command[512];
+    char command[COMMAND_BUFFER_SIZE];
     snprintf(command, sizeof(command),
         "ffmpeg -y -i \"%s\" -vn -acodec libmp3lame -q:a 2 \"%s\"",
         input, output);
@@ -53,7 +53,7 @@ int ffmpeg_convert(const char* input, const char* format, const char* output_bas
         return -1;
     }
 
-    char output[COMMAND_BUFFER_SIZE];
+    char output[PATH_MAX];
     snprintf(output, sizeof(output), "%s.%s", output_base, format);
 
     char command[COMMAND_BUFFER_SIZE];
@@ -74,7 +74,7 @@ int ffmpeg_convert(const char* input, const char* format, const char* output_bas
 }
 
 int ffmpeg_concat(const char* input1, const char* input2, const char* output) {
-    char cmd[1024];
+    char cmd[COMMAND_BUFFER_SIZE];
 
     // Pas 1: Convertim fiecare input într-un fișier .ts temporar
     char temp1[] = "temp1.ts";
@@ -93,7 +93,26 @@ int ffmpeg_concat(const char* input1, const char* input2, const char* output) {
         temp1, temp2
     );
 
-    printf("[FFMPEG] Execut: %s\n", cmd);
+    fprintf(stderr, "[FFMPEG_WRAPPER] Execut: %s\n", cmd);
     return system(cmd);
 }
 
+int ffmpeg_change_resolution(const char* input, const char* resolution, const char* output) {
+    if (!input || !resolution || !output) {
+        fprintf(stderr, "[FFMPEG_WRAPPER] Parametru invalid pentru schimbare rezoluție.\n");
+        return -1;
+    }
+
+    char command[COMMAND_BUFFER_SIZE];
+    int ret = snprintf(command, sizeof(command),
+        "ffmpeg -y -i \"%s\" -vf scale=%s \"%s\"",
+        input, resolution, output);
+
+    if (ret < 0 || ret >= sizeof(command)) {
+        fprintf(stderr, "[FFMPEG_WRAPPER] Comanda depășește dimensiunea bufferului.\n");
+        return -1;
+    }
+
+    fprintf(stderr, "[FFMPEG_WRAPPER] Execut: %s\n", command);
+    return system(command);
+}
