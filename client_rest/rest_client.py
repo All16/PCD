@@ -15,7 +15,7 @@ def send_request(endpoint, data):
 def main():
     if len(sys.argv) < 2:
         print("Usage: python rest_client.py <operation> [args]")
-        print("Operations: cut, extract_audio, convert")
+        print("Operations: cut, extract_audio, convert, concat, change_resolution, cut_except, speed_segment")
         return
 
     operation = sys.argv[1]
@@ -52,6 +52,7 @@ def main():
             "file2": file2
         }
         result = send_request("concat", data)
+
     elif operation == "change_resolution" and len(sys.argv) == 5:
         filename = os.path.basename(sys.argv[2])
         width = sys.argv[3]
@@ -62,21 +63,32 @@ def main():
             "resolution": resolution
         }
         result = send_request("change_resolution", data)
+
     elif operation == "cut_except" and len(sys.argv) == 5:
         filename = os.path.basename(sys.argv[2])
         start_cut = sys.argv[3]
         end_cut = sys.argv[4]
         if start_cut >= end_cut:
-            a = end_cut,
-            end_cut=start_cut,
-            start_cut = a
-            
+            start_cut, end_cut = end_cut, start_cut
         data = {
             "filename": filename,
             "start": start_cut,
             "end": end_cut
         }
         result = send_request("cut_except", data)
+
+    elif operation == "speed_segment" and len(sys.argv) == 6:
+        filename = os.path.basename(sys.argv[2])
+        start = sys.argv[3]
+        end = sys.argv[4]
+        factor = sys.argv[5]
+        data = {
+            "filename": filename,
+            "start": start,
+            "end": end,
+            "factor": factor
+        }
+        result = send_request("speed_segment", data)
 
     else:
         print("Invalid arguments.")

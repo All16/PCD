@@ -366,6 +366,47 @@ if (strcmp(method, "POST") == 0 && strcmp(url, "/cut_out") == 0) {
     MHD_destroy_response(resp);
     return ret;
 }
+if (strcmp(method, "POST") == 0 && strcmp(url, "/speed_segment") == 0) {
+    struct json_object *json = json_tokener_parse(info->buffer);
+    if (!json) {
+        const char *err = "{\"error\": \"Invalid JSON\"}";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+        MHD_destroy_response(resp);
+        return ret;
+    }
+
+    const char *filename = json_object_get_string(json_object_object_get(json, "filename"));
+    const char *start = json_object_get_string(json_object_object_get(json, "start"));
+    const char *end = json_object_get_string(json_object_object_get(json, "end"));
+    const char *factor = json_object_get_string(json_object_object_get(json, "factor"));
+
+    if (!filename || !start || !end || !factor) {
+        json_object_put(json);
+        const char *err = "{\"error\": \"Missing parameters\"}";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+        MHD_destroy_response(resp);
+        return ret;
+    }
+
+    Job job;
+    memset(&job, 0, sizeof(Job));
+    snprintf(job.command, sizeof(job.command), "speed_segment");
+    snprintf(job.input_file, sizeof(job.input_file), "videos/incoming/%s", filename);
+    snprintf(job.args, sizeof(job.args), "%s %s %s", start, end, factor);
+    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/speed_%s", filename);
+    job.client_socket = -1;
+
+    job_queue_enqueue(job);
+    json_object_put(json);
+
+    const char *ok = "{\"status\": \"accepted\"}";
+    struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
+    int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
+    MHD_destroy_response(resp);
+    return ret;
+}
 
 // Dacă nu s-a potrivit niciun URL, returnăm 404
 const char *msg = "404 Not Found";

@@ -145,6 +145,32 @@ def status(filename):
         if filename in f:
             return jsonify({"status": "ready", "output": f"/videos/outgoing/{f}"})
     return jsonify({"status": "processing"})
+@app.route("/speed_segment", methods=["POST"])
+def speed_segment():
+    data = request.json
+    filename = data.get("filename")
+    start = data.get("start")
+    end = data.get("end")
+    factor = data.get("factor")
+
+    if not filename or not start or not end or not factor:
+        return jsonify({"error": "Parametrii lipsă"}), 400
+
+    job_id = str(uuid.uuid4())
+    job_file = os.path.join(INCOMING_FOLDER, f"job{job_id}.json")
+
+    job = {
+        "command": "speed_segment",
+        "input_file": filename,
+        "args": f"{start} {end} {factor}",
+        "output_file": f"speed_{filename}",
+        "job_id": job_id
+    }
+
+    with open(job_file, "w") as f:
+        json.dump(job, f)
+
+    return jsonify({"status": "accepted", "job_id": job_id}), 200
 
 if __name__ == "__main__":
     os.makedirs(INCOMING_FOLDER, exist_ok=True)

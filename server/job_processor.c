@@ -71,7 +71,16 @@ void process_job(const char *job_type, const char *input, const char *output, co
     }
     log_message("PROC", "Execut cut_out %s -> %s [fără %s–%s]", input_path, output_path, start, end);
     ffmpeg_cut_out(input_path, start, end, output_path);
+    } else if (strcmp(job_type, "speed_segment") == 0) {
+    char start[64], end[64], factor[16];
+    if (sscanf(extra, "%63s %63s %15s", start, end, factor) != 3) {
+        fprintf(stderr, "[PROC] Format invalid pentru 'speed_segment'. Așteptat: start end factor\n");
+        return;
     }
+    log_message("PROC", "Execut speed_segment %s -> %s [%s to %s] factor %s", input_path, output_path, start, end, factor);
+    ffmpeg_speed_segment(input_path, start, end, factor, output_path);
+}
+
     else {
         log_message("ERROR", "Tip job necunoscut: %s", job_type);
     }

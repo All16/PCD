@@ -132,3 +132,24 @@ int ffmpeg_cut_out(const char* input, const char* start, const char* end, const 
     fprintf(stderr, "[FFMPEG] Execut: %s\n", cmd);
     return system(cmd);
 }
+
+int ffmpeg_speed_segment(const char *input, const char *start, const char *end, const char *factor, const char *output) {
+    char command[1024];
+
+    snprintf(command, sizeof(command),
+        "ffmpeg -y -i \"%s\" -filter_complex \""
+        "[0:v]trim=start=0:end=%s,setpts=PTS-STARTPTS[v1];"
+        "[0:v]trim=start=%s:end=%s,setpts=PTS-STARTPTS,fps=30,setpts=PTS/%s[v2];"
+        "[0:v]trim=start=%s,setpts=PTS-STARTPTS[v3];"
+        "[0:a]atrim=start=0:end=%s,asetpts=PTS-STARTPTS[a1];"
+        "[0:a]atrim=start=%s:end=%s,asetpts=PTS-STARTPTS,atempo=%s[a2];"
+        "[0:a]atrim=start=%s,asetpts=PTS-STARTPTS[a3];"
+        "[v1][v2][v3]concat=n=3:v=1:a=0[v];"
+        "[a1][a2][a3]concat=n=3:v=0:a=1[a]\" "
+        "-map \"[v]\" -map \"[a]\" \"%s\"",
+        input, start, start, end, factor,
+        end, start, start, end, factor,
+        end, output);
+
+    return system(command);
+}

@@ -13,6 +13,7 @@ typedef enum {
     CMD_CUT_EXCEPT,
     CMD_CONCAT,
     CMD_CHANGE_RESOLUTION,
+    CMD_SPEED_SEGMENT,
     CMD_UNKNOWN
 } CommandType;
 
