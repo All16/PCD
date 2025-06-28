@@ -1,74 +1,76 @@
-import requests
 import sys
 import os
+import requests
+import json
 
-def send_request(endpoint, data):
-    url = f"http://localhost:5000/{endpoint}"
-    try:
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        return None
+SERVER_URL = "http://localhost:5000"
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python rest_client.py <operation> [args]")
-        print("Operations: cut, extract_audio, convert")
-        return
+def send_request(endpoint, payload):
+    url = f"{SERVER_URL}/{endpoint}"
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    response.raise_for_status()
+    print(response.json())
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python3 rest_client.py [operation] [args...]")
+        sys.exit(1)
 
     operation = sys.argv[1]
 
-    if operation == "cut" and len(sys.argv) == 5:
+    if operation == "cut" and len(sys.argv) == 6:
         filename = os.path.basename(sys.argv[2])
+        start = sys.argv[3]
+        end = sys.argv[4]
+        folder = sys.argv[5]
+
         data = {
             "filename": filename,
-            "start": sys.argv[3],
-            "end": sys.argv[4]
+            "start": start,
+            "end": end,
+            "folder": folder
         }
-        result = send_request("cut", data)
+        send_request("cut", data)
 
-    elif operation == "extract_audio" and len(sys.argv) == 3:
+    elif operation == "extract_audio" and len(sys.argv) == 4:
         filename = os.path.basename(sys.argv[2])
-        data = {
-            "filename": filename
-        }
-        result = send_request("extract_audio", data)
+        folder = sys.argv[3]
 
-    elif operation == "convert" and len(sys.argv) == 4:
-        filename = os.path.basename(sys.argv[2])
         data = {
             "filename": filename,
-            "format": sys.argv[3]
+            "folder": folder
         }
-        result = send_request("convert", data)
+        send_request("extract_audio", data)
 
-    elif operation == "concat" and len(sys.argv) == 4:
-        file1 = os.path.basename(sys.argv[2])
-        file2 = os.path.basename(sys.argv[3])
+    elif operation == "concat":
+        if len(sys.argv) != 5:
+            print("Usage: rest_client.py concat <file1> <file2> <folder>")
+            sys.exit(1)
+
+        file1 = os.path.basename(sys.argv[2])   # ex: test1.mp4
+        file2 = os.path.basename(sys.argv[3])   # ex: test.mp4
+        folder = sys.argv[4]                    # ex: processing
+
         data = {
             "file1": file1,
-            "file2": file2
+            "file2": file2,
+            "folder": folder
         }
-        result = send_request("concat", data)
+        send_request("concat", data)
+
     elif operation == "change_resolution" and len(sys.argv) == 5:
         filename = os.path.basename(sys.argv[2])
-        width = sys.argv[3]
-        height = sys.argv[4]
-        resolution = f"{width}:{height}"
+        resolution = sys.argv[3]
+        folder = sys.argv[4]
+
         data = {
             "filename": filename,
-            "resolution": resolution
+            "resolution": resolution,
+            "folder": folder
         }
-        result = send_request("change_resolution", data)
+        print("[DEBUG] Sending JSON to /concat:", json.dumps(data))
+        send_request("change_resolution", data)
 
     else:
-        print("Invalid arguments.")
-        return
-
-    if result:
-        print("Response:", result)
-
-if __name__ == "__main__":
-    main()
+        print("Comandă invalidă sau argumente insuficiente.")

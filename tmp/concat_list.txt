@@ -1,2 +1,0 @@
-file '/home/vboxuser/PCD/Proiect/PCD/videos/incoming/test1.mp4'
-file '/home/vboxuser/PCD/Proiect/PCD/videos/incoming/test.mp4'

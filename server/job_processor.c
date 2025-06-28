@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <linux/limits.h>
+#include <stdlib.h>
 
 #include "../include/job_queue.h"
 #include "../include/ffmpeg_wrapper.h"
@@ -15,14 +16,15 @@ void process_job(const char *job_type, const char *input, const char *output, co
     char input_path[PATH_MAX];
     char output_path[PATH_MAX];
 
+    // Convertim căile relative în căi absolute
     if (strstr(input, "/") == NULL) {
-        snprintf(input_path, sizeof(input_path), "/home/User/Desktop/Proiect/videos/incoming/%s", input);
+        snprintf(input_path, sizeof(input_path), "/home/vboxuser/PCD/Proiect/PCD/%s", input);
     } else {
         strncpy(input_path, input, sizeof(input_path));
     }
 
     if (strstr(output, "/") == NULL) {
-        snprintf(output_path, sizeof(output_path), "/home/User/Desktop/Proiect/videos/outgoing/%s", output);
+        snprintf(output_path, sizeof(output_path), "/home/vboxuser/PCD/Proiect/PCD/%s", output);
     } else {
         strncpy(output_path, output, sizeof(output_path));
     }
@@ -45,17 +47,19 @@ void process_job(const char *job_type, const char *input, const char *output, co
         ffmpeg_convert(input_path, extra, output_path);
     }
     else if (strcmp(job_type, "concat") == 0) {
-        char file1[128], file2[128];
-        if (sscanf(extra, "%127s %127s", file1, file2) == 2) {
-            char path1[256], path2[256];
-            snprintf(path1, sizeof(path1), "/home/User/Desktop/Proiect/videos/incoming/%s", file1);
-            snprintf(path2, sizeof(path2), "/home/User/Desktop/Proiect/videos/incoming/%s", file2);
-            log_message("PROC", "Execut concat %s + %s -> %s", path1, path2, output_path);
-            ffmpeg_concat(path1, path2, output_path);
-        } else {
-            fprintf(stderr, "[PROC] Format invalid pentru concat.\n");
-        }
+    char file1[128], file2[128];
+if (sscanf(extra, "%127s %127s", file1, file2) == 2) {
+    char path1[PATH_MAX], path2[PATH_MAX];
+    realpath(input, path1); // input e deja file1
+    snprintf(path2, sizeof(path2), "/home/vboxuser/PCD/Proiect/PCD/videos/incoming/%s", file2);
+
+    ffmpeg_concat(path1, path2, output_path);
+}
+ else {
+        fprintf(stderr, "[PROC] Format invalid pentru concat.\n");
     }
+}
+
     else if (strcmp(job_type, "change_resolution") == 0) {
         log_message("PROC", "Execut change_resolution %s -> %s (rezoluție %s)", input_path, output_path, extra);
         int ret = ffmpeg_change_resolution(input_path, extra, output_path);

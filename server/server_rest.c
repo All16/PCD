@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <sys/inotify.h>
 #include <limits.h>
-#include <linux/limits.h> // Ensure NAME_MAX is defined
+#include <linux/limits.h>
 #include <errno.h>
 #include <json-c/json.h>
 #include <microhttpd.h>
@@ -19,7 +19,6 @@
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define BUF_LEN (1024 * (EVENT_SIZE + NAME_MAX + 1))
 #define PORT 5000
-
 #define POST_BUFFER_SIZE 2048
 
 struct ConnectionInfo {
@@ -135,7 +134,6 @@ void* start_rest_server(void* arg) {
     pthread_exit(NULL);
 }
 
-
 enum MHD_Result handle_request(void *cls,
     struct MHD_Connection *connection,
     const char *url,
@@ -145,113 +143,149 @@ enum MHD_Result handle_request(void *cls,
     size_t *upload_data_size,
     void **con_cls)
 {
-if (strcmp(method, "GET") == 0 && strcmp(url, "/") == 0) {
-const char *msg = "V-Edit REST server activ.\n";
-struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
-int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
-MHD_destroy_response(resp);
-return ret;
-}
+    if (strcmp(method, "GET") == 0 && strcmp(url, "/") == 0) {
+        const char *msg = "V-Edit REST server activ.\n";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
+        int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
+        MHD_destroy_response(resp);
+        return ret;
+    }
 
-if (*con_cls == NULL) {
-struct ConnectionInfo *info = malloc(sizeof(struct ConnectionInfo));
-info->buffer = calloc(1, POST_BUFFER_SIZE);
-*con_cls = info;
-return MHD_YES;
-}
+    if (*con_cls == NULL) {
+        struct ConnectionInfo *info = malloc(sizeof(struct ConnectionInfo));
+        info->buffer = calloc(1, POST_BUFFER_SIZE);
+        *con_cls = info;
+        return MHD_YES;
+    }
 
-struct ConnectionInfo *info = *con_cls;
+    struct ConnectionInfo *info = *con_cls;
 
-if (*upload_data_size != 0) {
-strncat(info->buffer, upload_data, *upload_data_size);
-*upload_data_size = 0;
-return MHD_YES;
-}
+    if (*upload_data_size != 0) {
+        strncat(info->buffer, upload_data, *upload_data_size);
+        *upload_data_size = 0;
+        return MHD_YES;
+    }
 
-if (strcmp(method, "POST") == 0 && strcmp(url, "/cut") == 0) {
-struct json_object *json = json_tokener_parse(info->buffer);
-if (!json) {
-const char *err = "{\"error\": \"Invalid JSON\"}";
-struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-MHD_destroy_response(resp);
-free(info->buffer);
-free(info);
-*con_cls = NULL;
-return ret;
-}
-
-const char *filename = json_object_get_string(json_object_object_get(json, "filename"));
-const char *start = json_object_get_string(json_object_object_get(json, "start"));
-const char *end = json_object_get_string(json_object_object_get(json, "end"));
-
-if (!filename || !start || !end) {
-const char *err = "{\"error\": \"Missing parameters\"}";
-struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-MHD_destroy_response(resp);
-json_object_put(json);
-free(info->buffer);
-free(info);
-*con_cls = NULL;
-return ret;
-}
-
-Job job;
-memset(&job, 0, sizeof(Job));
-snprintf(job.command, sizeof(job.command), "cut");
-snprintf(job.input_file, sizeof(job.input_file), "videos/incoming/%s", filename);
-snprintf(job.args, sizeof(job.args), "%s %s", start, end);
-snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/clip_%s", filename);
-job.client_socket = -1;
-
-job_queue_enqueue(job);
-json_object_put(json);
-
-const char *ok = "{\"status\": \"accepted\"}";
-struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
-int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
-MHD_destroy_response(resp);
-
-free(info->buffer);
-free(info);
-*con_cls = NULL;
-return ret;
-}
-
-if (strcmp(method, "POST") == 0 && strcmp(url, "/extract_audio") == 0) {
+    // === Parsăm JSON-ul ===
     struct json_object *json = json_tokener_parse(info->buffer);
+    printf("[DEBUG] JSON primit: %s\n", info->buffer);
 
     if (!json) {
         const char *err = "{\"error\": \"Invalid JSON\"}";
         struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
         int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
         MHD_destroy_response(resp);
+        free(info->buffer);
+        free(info);
+        *con_cls = NULL;
         return ret;
     }
 
-    const char* filename = json_object_get_string(json_object_object_get(json, "filename"));
-    if (!filename) {
-        json_object_put(json);
-        const char *err = "{\"error\": \"Missing filename\"}";
-        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-        MHD_destroy_response(resp);
-        return ret;
-    }
+    const char *filename = json_object_get_string(json_object_object_get(json, "filename"));
+    const char *folder = json_object_get_string(json_object_object_get(json, "folder"));
 
     Job job;
     memset(&job, 0, sizeof(Job));
-    snprintf(job.command, sizeof(job.command), "extract_audio");
-    snprintf(job.input_file, sizeof(job.input_file), "videos/incoming/%s", filename);
-    char base_name[128] = {0};
-    strncpy(base_name, filename, sizeof(base_name) - 1);
-    char *dot = strrchr(base_name, '.');
-    if (dot) *dot = '\0';
-    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/%s.mp3", base_name);
-
     job.client_socket = -1;
 
+    // ---------------- CONCAT ----------------
+    if (strcmp(method, "POST") == 0 && strcmp(url, "/concat") == 0) {
+        const char *file1 = json_object_get_string(json_object_object_get(json, "file1"));
+        const char *file2 = json_object_get_string(json_object_object_get(json, "file2"));
+        const char *concat_folder = json_object_get_string(json_object_object_get(json, "folder"));  // poate redenumit
+
+        if (!file1 || !file2 || !concat_folder) {
+            json_object_put(json);
+            const char *err = "{\"error\": \"Missing file1, file2 or folder\"}";
+            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+            MHD_destroy_response(resp);
+            free(info->buffer); free(info); *con_cls = NULL;
+            return ret;
+        }
+
+        snprintf(job.command, sizeof(job.command), "concat");
+        snprintf(job.args, sizeof(job.args), "%s %s", file1, file2);
+        snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", concat_folder, file1);
+        snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", concat_folder, file1);
+    }
+
+    // ---------------- CUT ----------------
+    else if (strcmp(method, "POST") == 0 && strcmp(url, "/cut") == 0) {
+        const char *start = json_object_get_string(json_object_object_get(json, "start"));
+        const char *end = json_object_get_string(json_object_object_get(json, "end"));
+
+        if (!filename || !folder || !start || !end) {
+            json_object_put(json);
+            const char *err = "{\"error\": \"Missing parameters for cut\"}";
+            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+            MHD_destroy_response(resp);
+            free(info->buffer); free(info); *con_cls = NULL;
+            return ret;
+        }
+
+        snprintf(job.command, sizeof(job.command), "cut");
+        snprintf(job.args, sizeof(job.args), "%s %s", start, end);
+        snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", folder, filename);
+        snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", folder, filename);
+    }
+
+    // ---------------- EXTRACT AUDIO ----------------
+    else if (strcmp(method, "POST") == 0 && strcmp(url, "/extract_audio") == 0) {
+        if (!filename || !folder) {
+            json_object_put(json);
+            const char *err = "{\"error\": \"Missing filename or folder for extract_audio\"}";
+            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+            MHD_destroy_response(resp);
+            free(info->buffer); free(info); *con_cls = NULL;
+            return ret;
+        }
+
+        snprintf(job.command, sizeof(job.command), "extract_audio");
+
+        char base[128];
+        strncpy(base, filename, sizeof(base));
+        char *dot = strrchr(base, '.');
+        if (dot) *dot = '\0';
+
+        snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", folder, filename);
+        snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s.mp3", folder, base);
+    }
+
+    // ---------------- CHANGE RESOLUTION ----------------
+    else if (strcmp(method, "POST") == 0 && strcmp(url, "/change_resolution") == 0) {
+        const char *resolution = json_object_get_string(json_object_object_get(json, "resolution"));
+
+        if (!filename || !folder || !resolution) {
+            json_object_put(json);
+            const char *err = "{\"error\": \"Missing parameters for change_resolution\"}";
+            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+            MHD_destroy_response(resp);
+            free(info->buffer); free(info); *con_cls = NULL;
+            return ret;
+        }
+
+        snprintf(job.command, sizeof(job.command), "change_resolution");
+        snprintf(job.args, sizeof(job.args), "%s", resolution);
+        snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", folder, filename);
+        snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", folder, filename);
+    }
+
+    // ---------------- NECUNOSCUT ----------------
+    else {
+        json_object_put(json);
+        const char *err = "{\"error\": \"Unknown endpoint\"}";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+        int ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, resp);
+        MHD_destroy_response(resp);
+        free(info->buffer); free(info); *con_cls = NULL;
+        return ret;
+    }
+
+    // === Enqueue job-ul ===
     job_queue_enqueue(job);
     json_object_put(json);
 
@@ -259,99 +293,10 @@ if (strcmp(method, "POST") == 0 && strcmp(url, "/extract_audio") == 0) {
     struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
     int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
     MHD_destroy_response(resp);
+
+    free(info->buffer);
+    free(info);
+    *con_cls = NULL;
     return ret;
-}
-
-if (strcmp(method, "POST") == 0 && strcmp(url, "/concat") == 0) {
-    struct json_object *json = json_tokener_parse(info->buffer);
-
-    if (!json) {
-        const char *err = "{\"error\": \"Invalid JSON\"}";
-        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-        MHD_destroy_response(resp);
-        return ret;
-    }
-
-    const char* file1 = json_object_get_string(json_object_object_get(json, "file1"));
-    const char* file2 = json_object_get_string(json_object_object_get(json, "file2"));
-    if (!file1 || !file2) {
-        json_object_put(json);
-        const char *err = "{\"error\": \"Missing parameters\"}";
-        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-        MHD_destroy_response(resp);
-        return ret;
-    }
-
-    Job job;
-    memset(&job, 0, sizeof(Job));
-    snprintf(job.command, sizeof(job.command), "concat");
-    snprintf(job.args, sizeof(job.args), "%s %s", file1, file2);
-    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/concat_%s", file1);
-    job.client_socket = -1;
-
-    job_queue_enqueue(job);
-    json_object_put(json);
-
-    const char *ok = "{\"status\": \"accepted\"}";
-    struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
-    int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
-    MHD_destroy_response(resp);
-    return ret;
-}
-
-if (strcmp(method, "POST") == 0 && strcmp(url, "/change_resolution") == 0) {
-    struct json_object *json = json_tokener_parse(info->buffer);
-    if (!json) {
-        const char *err = "{\"error\": \"Invalid JSON\"}";
-        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-        MHD_destroy_response(resp);
-        return ret;
-    }
-
-    const char* filename = json_object_get_string(json_object_object_get(json, "filename"));
-    const char* resolution = json_object_get_string(json_object_object_get(json, "resolution"));
-
-    if (!filename || !resolution) {
-        json_object_put(json);
-        const char *err = "{\"error\": \"Missing parameters\"}";
-        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-        MHD_destroy_response(resp);
-        return ret;
-    }
-
-    Job job;
-    memset(&job, 0, sizeof(Job));
-    snprintf(job.command, sizeof(job.command), "change_resolution");
-    snprintf(job.input_file, sizeof(job.input_file), "videos/incoming/%s", filename);
-    snprintf(job.args, sizeof(job.args), "%s", resolution);
-    snprintf(job.output_file, sizeof(job.output_file), "videos/outgoing/resized_%s", filename);
-    job.client_socket = -1;
-
-    job_queue_enqueue(job);
-    json_object_put(json);
-
-    const char *ok = "{\"status\": \"accepted\"}";
-    struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
-    int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
-    MHD_destroy_response(resp);
-    return ret;
-}
-
-const char *msg = "404 Not Found";
-struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
-int ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, resp);
-MHD_destroy_response(resp);
-
-free(info->buffer);
-free(info);
-*con_cls = NULL;
-return ret;
-
-
-
 }
 

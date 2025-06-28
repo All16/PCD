@@ -2,92 +2,136 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
+#include <sys/stat.h>
+
 #include "../include/user_interface.h"
-#include "../include/command_sender.h"
 
-#define SERVER_IP "127.0.0.1"
-#define SERVER_PORT 5000
+#define INCOMING "videos/incoming/"
+#define PROCESSING "videos/processing/"
+#define OUTGOING "videos/outgoing/"
 
-int main() {
-    int sock_fd;
-    struct sockaddr_in server_addr;
-
-    // Creăm socketul
-    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock_fd < 0) {
-        perror("[CLIENT] Eroare creare socket");
-        return 1;
-    }
-
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(SERVER_PORT);
-    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
-
-    // Conectare la server
-    if (connect(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("[CLIENT] Eroare conectare");
-        close(sock_fd);
-        return 1;
-    }
-
-    printf("[CLIENT] Conectat la serverul V-Edit.\n");
-
-    int opt;
-    char input[256], input2[256], start[64], end[64];
-    char buffer[1024];
-
-    while (1) {
-        print_menu();
-        scanf("%d", &opt);
-        getchar(); // Consumăm newline
-
-        if (opt == 1) {
-            get_user_input(input, sizeof(input), "Nume fișier (ex: test.mp4): ");
-            get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
-            get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
-            snprintf(buffer, sizeof(buffer), 
-                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py cut %s %s %s",
-                input, start, end);
-            system(buffer);
-        } 
-        else if (opt == 2) {
-            get_user_input(input, sizeof(input), "Nume fișier (ex: test.mp4): ");
-            snprintf(buffer, sizeof(buffer), 
-                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py extract_audio %s",
-                input);
-            system(buffer);
-        }
-        else if (opt == 3) {
-            get_user_input(input, sizeof(input), "Primul fișier video (ex: test.mp4): ");
-            get_user_input(input2, sizeof(input2), "Al doilea fișier video (ex: test1.mp4): ");
-            snprintf(buffer, sizeof(buffer),
-                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py concat %s %s",
-                input, input2);
-            system(buffer);
-        } 
-        else if (opt == 4) {
-            get_user_input(input, sizeof(input), "Nume fișier (ex: test.mp4): ");
-            char width[16], height[16];
-            get_user_input(width, sizeof(width), "Lățime (ex: 640): ");
-            get_user_input(height, sizeof(height), "Înălțime (ex: 360): ");
-            snprintf(buffer, sizeof(buffer), 
-                "python3 /home/vboxuser/PCD/Proiect/PCD/client_rest/rest_client.py change_resolution %s %s %s",
-                input, width, height);
-            system(buffer);
+void move_file(const char *src, const char *dest) {
+    char command[512];
+    snprintf(command, sizeof(command), "mv \"%s\" \"%s\"", src, dest);
+    system(command);
 }
 
-        else if (opt == 0) {
-            printf("[CLIENT] Deconectare...\n");
+void copy_file(const char *src, const char *dest) {
+    char command[512];
+    snprintf(command, sizeof(command), "cp \"%s\" \"%s\"", src, dest);
+    system(command);
+}
+
+int main() {
+    char filename[256];
+    int opt;
+
+    while (1) {
+        print_main_menu();  // afișează: 1. Edit video, 2. Exit
+        scanf("%d", &opt);
+        getchar();  // elimină newline
+
+        if (opt == 1) {
+            get_user_input(filename, sizeof(filename), "Nume fișier video: ");
+
+            char source_path[512], processing_path[512];
+            snprintf(source_path, sizeof(source_path), "%s%s", INCOMING, filename);
+            snprintf(processing_path, sizeof(processing_path), "%s%s", PROCESSING, filename);
+
+            // Copiază fișierul în processing
+            copy_file(source_path, processing_path);
+            printf("[INFO] Fișier copiat în processing: %s\n", processing_path);
+
+            while (1) {
+                print_edit_menu();  // meniul cu opțiuni: cut, extract_audio, etc.
+                int subopt;
+                scanf("%d", &subopt);
+                getchar();
+
+                if (subopt == 1) {  // Cut
+                    char start[64], end[64];
+                    get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
+                    get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
+
+                    char cmd[512];
+                    snprintf(cmd, sizeof(cmd),
+                        "python3 client_rest/rest_client.py cut %s %s %s processing",
+                        filename, start, end);
+                    system(cmd);
+                }
+                else if (subopt == 2) {  // Extract audio
+                    char cmd[512];
+                    snprintf(cmd, sizeof(cmd),
+                        "python3 client_rest/rest_client.py extract_audio %s processing",
+                        filename);
+                    system(cmd);
+                }
+                else if (subopt == 3) {  // Concat
+                    char file2[256];
+                    get_user_input(file2, sizeof(file2), "Al doilea fișier (din incoming): ");
+                    char cmd[1024];
+                    snprintf(cmd, sizeof(cmd),
+                            "python3 client_rest/rest_client.py concat %s %s processing",
+                            filename, file2);
+                    system(cmd);
+
+                }
+                else if (subopt == 4) {  // Change resolution
+                    char width[32], height[32];
+                    get_user_input(width, sizeof(width), "Lățime: ");
+                    get_user_input(height, sizeof(height), "Înălțime: ");
+
+                    char resolution[64];
+                    snprintf(resolution, sizeof(resolution), "%s:%s", width, height);
+
+                    char cmd[512];
+                    snprintf(cmd, sizeof(cmd),
+                        "python3 client_rest/rest_client.py change_resolution %s %s processing",
+                        filename, resolution);
+                    system(cmd);
+                }
+                else if (subopt == 0) {
+                    // La final, mută fișierul principal în outgoing
+                    char proc_path[512], final_path[512];
+                    snprintf(proc_path, sizeof(proc_path), "%s%s", PROCESSING, filename);
+                    snprintf(final_path, sizeof(final_path), "%s%s", OUTGOING, filename);
+                    move_file(proc_path, final_path);
+                    printf("[INFO] Fișier video mutat în outgoing: %s\n", final_path);
+
+                    // Dacă există și mp3 asociat, mută și acela
+                    char base[256], *dot = strrchr(filename, '.');
+                    if (dot) {
+                        strncpy(base, filename, dot - filename);
+                        base[dot - filename] = '\0';
+                    } else {
+                        strncpy(base, filename, sizeof(base));
+                    }
+
+                    char mp3_proc[512], mp3_out[512];
+                    snprintf(mp3_proc, sizeof(mp3_proc), "%s%s.mp3", PROCESSING, base);
+                    snprintf(mp3_out, sizeof(mp3_out), "%s%s.mp3", OUTGOING, base);
+
+                    struct stat st;
+                    if (stat(mp3_proc, &st) == 0) {
+                        move_file(mp3_proc, mp3_out);
+                        printf("[INFO] Fișier audio mutat în outgoing: %s\n", mp3_out);
+                    }
+
+                    break;
+                }
+                else {
+                    printf("Opțiune invalidă.\n");
+                }
+            }
+        }
+        else if (opt == 2) {
+            printf("Ieșire.\n");
             break;
-        } 
+        }
         else {
             printf("Opțiune invalidă.\n");
         }
     }
 
-    close(sock_fd);
     return 0;
 }
