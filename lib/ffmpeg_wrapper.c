@@ -255,60 +255,82 @@ int ffmpeg_speed_segment(const char *input, const char *start, const char *end, 
         return -1;
     }
 
-    // Drumuri temporare
-    char part1[PATH_MAX], part2[PATH_MAX], part3[PATH_MAX], part2_mod[PATH_MAX], concat_list[PATH_MAX];
-    realpath("tmp/part1.mp4", part1);
-    realpath("tmp/part2.mp4", part2);
-    realpath("tmp/part3.mp4", part3);
-    realpath("tmp/part2_mod.mp4", part2_mod);
-    realpath("tmp/concat_list.txt", concat_list);
+    // Drumuri relative (NU folosim realpath!)
+    const char *part1 = "tmp/part1.mp4";
+    const char *part2 = "tmp/part2.mp4";
+    const char *part2_mod = "tmp/part2_mod.mp4";
+    const char *part3 = "tmp/part3.mp4";
 
-    // 1. Taie segmentele
-    if (ffmpeg_cut(input, "00:00:00", start, part1) != 0) return -1;
-    if (ffmpeg_cut(input, start, end, part2) != 0) return -1;
-    if (ffmpeg_cut(input, end, NULL, part3) != 0) return -1;
+    // 1. Taie segmentele cu -ss DUPĂ -i pentru precizie
+    char cmd1[1024];
+    snprintf(cmd1, sizeof(cmd1),
+        "ffmpeg -y -i \"%s\" -ss 00:00:00 -to %s -c:v libx264 -c:a aac \"%s\"",
+        input, start, part1);
+    if (system(cmd1) != 0) return -1;
 
-    // 2. Creează filtrul pentru atempo
-    char atempo_chain[256];
-    build_atempo_filter(factor, atempo_chain, sizeof(atempo_chain));
+    char cmd2[1024];
+    snprintf(cmd2, sizeof(cmd2),
+        "ffmpeg -y -i \"%s\" -ss %s -to %s -c:v libx264 -c:a aac \"%s\"",
+        input, start, end, part2);
+    if (system(cmd2) != 0) return -1;
 
-    // 3. Aplică speed-up/slow-motion pe part2
-    char cmd_mod[8192];
+    char cmd3[1024];
+    snprintf(cmd3, sizeof(cmd3),
+        "ffmpeg -y -i \"%s\" -ss %s -c:v libx264 -c:a aac \"%s\"",
+        input, end, part3);
+    if (system(cmd3) != 0) return -1;
+
+    // 2. Aplică speed modificare pe part2
+    char atempo[256];
+    build_atempo_filter(factor, atempo, sizeof(atempo));
+
+    char cmd_mod[2048];
     snprintf(cmd_mod, sizeof(cmd_mod),
         "ffmpeg -y -i \"%s\" -filter_complex "
         "\"[0:v]setpts=PTS/%s[v];[0:a]%s[a]\" "
         "-map \"[v]\" -map \"[a]\" -preset ultrafast \"%s\"",
-        part2, factor, atempo_chain, part2_mod);
-
-    fprintf(stderr, "[FFMPEG_WRAPPER] Execut: %s\n", cmd_mod);
+        part2, factor, atempo, part2_mod);
     if (system(cmd_mod) != 0) return -1;
 
-    // 4. Creează listă concat cu drumuri relative (safe pentru ffmpeg)
-    FILE *f = fopen(concat_list, "w");
-    if (!f) {
-        perror("[FFMPEG_WRAPPER] Nu pot crea lista pentru concat");
+// === 3. Convertim fiecare parte în .ts ===
+    const char *ts1 = "tmp/input1.ts";
+    const char *ts2 = "tmp/input2.ts";
+    const char *ts3 = "tmp/input3.ts";
+
+    char cmd_ts1[1024], cmd_ts2[1024], cmd_ts3[1024], cmd_concat[2048];
+    snprintf(cmd_ts1, sizeof(cmd_ts1),
+             "ffmpeg -y -i tmp/part1.mp4 -c:v libx264 -preset ultrafast -crf 23 -c:a aac -f mpegts \"%s\"",
+             ts1);
+    snprintf(cmd_ts2, sizeof(cmd_ts2),
+             "ffmpeg -y -i tmp/part2_mod.mp4 -c:v libx264 -preset ultrafast -crf 23 -c:a aac -f mpegts \"%s\"",
+             ts2);
+    snprintf(cmd_ts3, sizeof(cmd_ts3),
+             "ffmpeg -y -i tmp/part3.mp4 -c:v libx264 -preset ultrafast -crf 23 -c:a aac -f mpegts \"%s\"",
+             ts3);
+
+    if (system(cmd_ts1) != 0 || system(cmd_ts2) != 0 || system(cmd_ts3) != 0) {
+        fprintf(stderr, "[FFMPEG_WRAPPER] Eroare la conversia în .ts\n");
         return -1;
     }
-    fprintf(f, "file '%s'\n", part1);
-    fprintf(f, "file '%s'\n", part2_mod);
-    fprintf(f, "file '%s'\n", part3);
-    fclose(f);
 
-    // 5. Concatenează în output
-    char cmd_concat[8192];
+    // === 4. Concatenează cele 3 .ts într-un .mp4
     snprintf(cmd_concat, sizeof(cmd_concat),
-        "ffmpeg -y -f concat -safe 0 -i \"%s\" -c copy \"%s\"",
-        concat_list, output);
+             "ffmpeg -y -i \"concat:%s|%s|%s\" -c copy -bsf:a aac_adtstoasc \"%s\"",
+             ts1, ts2, ts3, output);
 
-    fprintf(stderr, "[FFMPEG_WRAPPER] Execut: %s\n", cmd_concat);
-    if (system(cmd_concat) != 0) return -1;
+    if (system(cmd_concat) != 0) {
+        fprintf(stderr, "[FFMPEG_WRAPPER] Eroare la concatenare .ts\n");
+        return -1;
+    }
 
-    // 6. Cleanup
-    remove(part1);
-    remove(part2);
-    remove(part3);
-    remove(part2_mod);
-    remove(concat_list);
+    // === 5. Cleanup fișiere temporare
+    remove("tmp/part1.mp4");
+    remove("tmp/part2.mp4");
+    remove("tmp/part2_mod.mp4");
+    remove("tmp/part3.mp4");
+    remove(ts1);
+    remove(ts2);
+    remove(ts3);
 
     return 0;
 }
