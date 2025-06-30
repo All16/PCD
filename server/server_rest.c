@@ -166,7 +166,6 @@ enum MHD_Result handle_request(void *cls,
         return MHD_YES;
     }
 
-    // === Parsăm JSON-ul ===
     struct json_object *json = json_tokener_parse(info->buffer);
     printf("[DEBUG] JSON primit: %s\n", info->buffer);
 
@@ -192,38 +191,19 @@ enum MHD_Result handle_request(void *cls,
     if (strcmp(method, "POST") == 0 && strcmp(url, "/concat") == 0) {
         const char *file1 = json_object_get_string(json_object_object_get(json, "file1"));
         const char *file2 = json_object_get_string(json_object_object_get(json, "file2"));
-        const char *concat_folder = json_object_get_string(json_object_object_get(json, "folder"));  // poate redenumit
-
-        if (!file1 || !file2 || !concat_folder) {
-            json_object_put(json);
-            const char *err = "{\"error\": \"Missing file1, file2 or folder\"}";
-            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-            MHD_destroy_response(resp);
-            free(info->buffer); free(info); *con_cls = NULL;
-            return ret;
-        }
+        if (!file1 || !file2 || !folder) goto missing;
 
         snprintf(job.command, sizeof(job.command), "concat");
         snprintf(job.args, sizeof(job.args), "%s %s", file1, file2);
-        snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", concat_folder, file1);
-        snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", concat_folder, file1);
+        snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", folder, file1);
+        snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", folder, file1);
     }
 
     // ---------------- CUT ----------------
-    else if (strcmp(method, "POST") == 0 && strcmp(url, "/cut") == 0) {
+    else if (strcmp(url, "/cut") == 0) {
         const char *start = json_object_get_string(json_object_object_get(json, "start"));
         const char *end = json_object_get_string(json_object_object_get(json, "end"));
-
-        if (!filename || !folder || !start || !end) {
-            json_object_put(json);
-            const char *err = "{\"error\": \"Missing parameters for cut\"}";
-            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-            MHD_destroy_response(resp);
-            free(info->buffer); free(info); *con_cls = NULL;
-            return ret;
-        }
+        if (!filename || !folder || !start || !end) goto missing;
 
         snprintf(job.command, sizeof(job.command), "cut");
         snprintf(job.args, sizeof(job.args), "%s %s", start, end);
@@ -232,16 +212,8 @@ enum MHD_Result handle_request(void *cls,
     }
 
     // ---------------- EXTRACT AUDIO ----------------
-    else if (strcmp(method, "POST") == 0 && strcmp(url, "/extract_audio") == 0) {
-        if (!filename || !folder) {
-            json_object_put(json);
-            const char *err = "{\"error\": \"Missing filename or folder for extract_audio\"}";
-            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-            MHD_destroy_response(resp);
-            free(info->buffer); free(info); *con_cls = NULL;
-            return ret;
-        }
+    else if (strcmp(url, "/extract_audio") == 0) {
+        if (!filename || !folder) goto missing;
 
         snprintf(job.command, sizeof(job.command), "extract_audio");
 
@@ -255,18 +227,9 @@ enum MHD_Result handle_request(void *cls,
     }
 
     // ---------------- CHANGE RESOLUTION ----------------
-    else if (strcmp(method, "POST") == 0 && strcmp(url, "/change_resolution") == 0) {
+    else if (strcmp(url, "/change_resolution") == 0) {
         const char *resolution = json_object_get_string(json_object_object_get(json, "resolution"));
-
-        if (!filename || !folder || !resolution) {
-            json_object_put(json);
-            const char *err = "{\"error\": \"Missing parameters for change_resolution\"}";
-            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
-            int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-            MHD_destroy_response(resp);
-            free(info->buffer); free(info); *con_cls = NULL;
-            return ret;
-        }
+        if (!filename || !folder || !resolution) goto missing;
 
         snprintf(job.command, sizeof(job.command), "change_resolution");
         snprintf(job.args, sizeof(job.args), "%s", resolution);
@@ -274,7 +237,42 @@ enum MHD_Result handle_request(void *cls,
         snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", folder, filename);
     }
 
-    // ---------------- NECUNOSCUT ----------------
+    // ---------------- CUT EXCEPT ----------------
+    else if (strcmp(url, "/cut_except") == 0) {
+        const char *start = json_object_get_string(json_object_object_get(json, "start"));
+        const char *end = json_object_get_string(json_object_object_get(json, "end"));
+        if (!filename || !folder || !start || !end) goto missing;
+
+        snprintf(job.command, sizeof(job.command), "cut_except");
+        snprintf(job.args, sizeof(job.args), "%s %s", start, end);
+        snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", folder, filename);
+        snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", folder, filename);
+    }
+
+    // ---------------- SPEED SEGMENT ----------------
+    else if (strcmp(method, "POST") == 0 && strcmp(url, "/speed_segment") == 0) {
+    const char *start = json_object_get_string(json_object_object_get(json, "start"));
+    const char *end = json_object_get_string(json_object_object_get(json, "end"));
+    const char *factor = json_object_get_string(json_object_object_get(json, "factor"));
+
+    if (!filename || !folder || !start || !end || !factor) {
+        json_object_put(json);
+        const char *err = "{\"error\": \"Missing parameters for speed_segment\"}";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
+        MHD_destroy_response(resp);
+        free(info->buffer); free(info); *con_cls = NULL;
+        return ret;
+    }
+
+    snprintf(job.command, sizeof(job.command), "speed_segment");
+    snprintf(job.args, sizeof(job.args), "%s %s %s", start, end, factor);
+    snprintf(job.input_file, sizeof(job.input_file), "videos/%s/%s", folder, filename);
+    snprintf(job.output_file, sizeof(job.output_file), "videos/%s/%s", folder, filename);
+    }
+
+
+    // ---------------- ENDPOINT NECUNOSCUT ----------------
     else {
         json_object_put(json);
         const char *err = "{\"error\": \"Unknown endpoint\"}";
@@ -285,7 +283,7 @@ enum MHD_Result handle_request(void *cls,
         return ret;
     }
 
-    // === Enqueue job-ul ===
+    // === Adaugăm job-ul în coadă ===
     job_queue_enqueue(job);
     json_object_put(json);
 
@@ -293,10 +291,19 @@ enum MHD_Result handle_request(void *cls,
     struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
     int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
     MHD_destroy_response(resp);
-
-    free(info->buffer);
-    free(info);
-    *con_cls = NULL;
+    free(info->buffer); free(info); *con_cls = NULL;
     return ret;
+
+missing: {
+    json_object_put(json);
+    const char *err = "{\"error\": \"Missing parameters\"}";
+    struct MHD_Response *missing_resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_PERSISTENT);
+    int missing_ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, missing_resp);
+    MHD_destroy_response(missing_resp);
+    free(info->buffer); free(info); *con_cls = NULL;
+    return missing_ret;
 }
+
+}
+
 

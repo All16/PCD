@@ -16,6 +16,8 @@ void print_edit_menu() {
     printf("2. Extrage audio\n");
     printf("3. Concatenare\n");
     printf("4. Schimbă rezoluție\n");
+    printf("5. Cut Except\n");
+    printf("6. Speed Segment\n");
     printf("0. Finalizează editările\n");
     printf("----------------------------\n");
     printf("Alege o acțiune: ");

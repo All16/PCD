@@ -37,6 +37,60 @@ def cut_video():
 
     return jsonify({"status": "accepted", "job_id": job_id}), 200
 
+@app.route("/cut_except", methods=["POST"])
+def cut_except_video():
+    data = request.json
+    filename = data.get("filename")
+    start = data.get("start")
+    end = data.get("end")
+
+    if not filename or not start or not end:
+        return jsonify({"error": "Parametrii lipsă"}), 400
+
+    job_id = str(uuid.uuid4())
+    job_file = os.path.join(INCOMING_FOLDER, f"job{job_id}.json")
+
+    job = {
+        "command": "cut_except",
+        "input_file": filename,
+        "args": f"{start} {end}",
+        "output_file": f"removed_{filename}",
+        "job_id": job_id
+    }
+
+    with open(job_file, "w") as f:
+        json.dump(job, f)
+
+    return jsonify({"status": "accepted", "job_id": job_id}), 200
+
+@app.route("/speed_segment", methods=["POST"])
+def speed_segment():
+    data = request.json
+    filename = data.get("filename")
+    start = data.get("start")
+    end = data.get("end")
+    factor = data.get("factor")
+
+    if not filename or not start or not end or not factor:
+        return jsonify({"error": "Parametrii lipsă"}), 400
+
+    job_id = str(uuid.uuid4())
+    job_file = os.path.join(INCOMING_FOLDER, f"job{job_id}.json")
+
+    job = {
+        "command": "speed_segment",
+        "input_file": filename,
+        "args": f"{start} {end} {factor}",
+        "output_file": f"speed_{filename}",
+        "job_id": job_id
+    }
+
+    with open(job_file, "w") as f:
+        json.dump(job, f)
+
+    return jsonify({"status": "accepted", "job_id": job_id}), 200
+
+
 @app.route("/extract_audio", methods=["POST"])
 def extract_audio():
     data = request.json
@@ -85,11 +139,12 @@ def change_resolution():
         json.dump(job, f)
 
     return jsonify({"status": "accepted", "job_id": job_id}), 200
+    
 @app.route("/status/<job_id>", methods=["GET"])
 def status(job_id):
-    output_file = os.path.join(OUTGOING_FOLDER, f"result_{job_id}.mp4")
-    if os.path.exists(output_file):
-        return jsonify({"status": "ready", "output": output_file})
+    for f in os.listdir(OUTGOING_FOLDER):
+        if job_id in f:
+            return jsonify({"status": "ready", "output": f"/videos/outgoing/{f}"})
     return jsonify({"status": "processing"})
 
 if __name__ == "__main__":

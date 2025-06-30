@@ -67,6 +67,32 @@ if (sscanf(extra, "%127s %127s", file1, file2) == 2) {
             fprintf(stderr, "[PROC] Eroare la schimbarea rezoluției pentru %s\n", input_path);
         }
     }
+        else if (strcmp(job_type, "cut_except") == 0) {
+    char start[64], end[64];
+    if (sscanf(extra, "%63s %63s", start, end) != 2) {
+        fprintf(stderr, "[PROC] Format invalid pentru 'cut_except'. Așteptat: start end\n");
+        return;
+    }
+
+    // Suprascrie fișierul original în processing
+    char actual_output[PATH_MAX];
+    snprintf(actual_output, sizeof(actual_output), "%s", input_path);
+
+    log_message("PROC", "Execut cut_except %s [fără %s–%s]", input_path, start, end);
+    ffmpeg_cut_out(input_path, start, end, actual_output);
+}
+    else if (strcmp(job_type, "speed_segment") == 0) {
+    char start[64], end[64], factor[32];
+    if (sscanf(extra, "%63s %63s %31s", start, end, factor) != 3) {
+        fprintf(stderr, "[PROC] Format invalid pentru speed_segment. Așteptat: start end factor\n");
+        return;
+    }
+
+    log_message("PROC", "Execut speed_segment %s între %s și %s cu factor %s", input_path, start, end, factor);
+    ffmpeg_speed_segment(input_path, start, end, factor, output_path);
+    }
+
+
     else {
         log_message("ERROR", "Tip job necunoscut: %s", job_type);
     }

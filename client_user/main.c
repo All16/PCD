@@ -90,6 +90,31 @@ int main() {
                         filename, resolution);
                     system(cmd);
                 }
+                else if (subopt == 5) {  // Cut Except
+                    char start[64], end[64];
+                    get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
+                    get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
+
+                    char cmd[512];
+                    snprintf(cmd, sizeof(cmd),
+                        "python3 client_rest/rest_client.py cut_except %s %s %s processing",
+                        filename, start, end);
+                    system(cmd);
+                }
+                else if (subopt == 6) {  // Speed segment
+    char start[64], end[64], factor[16];
+    get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
+    get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
+    get_user_input(factor, sizeof(factor), "Factor (ex: 2.0 pentru accelerare, 0.5 pentru încetinire): ");
+
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd),
+        "python3 client_rest/rest_client.py speed_segment %s %s %s %s processing",
+        filename, start, end, factor);
+    system(cmd);
+}
+
+
                 else if (subopt == 0) {
                     // La final, mută fișierul principal în outgoing
                     char proc_path[512], final_path[512];

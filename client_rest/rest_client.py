@@ -72,5 +72,37 @@ if __name__ == "__main__":
         print("[DEBUG] Sending JSON to /concat:", json.dumps(data))
         send_request("change_resolution", data)
 
+    elif operation == "cut_except" and len(sys.argv) == 6:
+        filename = os.path.basename(sys.argv[2])
+        start = sys.argv[3]
+        end = sys.argv[4]
+        folder = sys.argv[5]
+
+        data = {
+            "filename": filename,
+            "start": start,
+            "end": end,
+            "folder": folder
+        }
+        send_request("cut_except", data)
+
+    elif operation == "speed_segment" and len(sys.argv) == 7:
+        filename = os.path.basename(sys.argv[2])
+        start = sys.argv[3]
+        end = sys.argv[4]
+        factor = sys.argv[5]
+        folder = sys.argv[6]
+
+        data = {
+            "filename": filename,
+            "start": start,
+            "end": end,
+            "factor": factor,
+            "folder": folder
+        }
+        send_request("speed_segment", data)
+
+
+
     else:
         print("Comandă invalidă sau argumente insuficiente.")
