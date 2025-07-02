@@ -58,8 +58,6 @@ void connect_to_inet_server() {
         sock_global = -1;
         return;
     }
-    const char *msg = "hello_from_rest_wrapper\n";
-    send(sock_global, msg, strlen(msg), 0);
 }
 
 // Functie pentru a procesa inputul de la utilizator
