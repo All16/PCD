@@ -1,12 +1,14 @@
+// === server/server_unix.c ===
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <string.h>
 #include <fcntl.h>
 #include <sys/select.h>
 #include <pthread.h>
 #include <signal.h>
+#include "../include/client_tracker.h"
 
 #define UNIX_SOCKET_PATH "/tmp/vedit_admin_socket"
 
@@ -27,13 +29,13 @@ void* handle_admin_socket(void* arg) {
     bind(sockfd, (struct sockaddr*)&addr, sizeof(addr));
     listen(sockfd, 1);
 
-    printf("[UNIX] Server UNIX admin ascultă pe %s\n", UNIX_SOCKET_PATH);
+    printf("[UNIX] Server UNIX admin asculta pe %s\n", UNIX_SOCKET_PATH);
 
     fd_set fds;
     struct timeval timeout;
 
     while (running) {
-        pthread_testcancel();  // 👈
+        pthread_testcancel();
 
         FD_ZERO(&fds);
         FD_SET(sockfd, &fds);
@@ -44,10 +46,25 @@ void* handle_admin_socket(void* arg) {
         if (ready > 0 && FD_ISSET(sockfd, &fds)) {
             clientfd = accept(sockfd, NULL, NULL);
             if (clientfd >= 0) {
+                const char *welcome = "[UNIX] Bine ai venit la interfata admin!\n";
+                const char *debug = "[UNIX] Aștept comanda de la admin client...\n";
+                write(clientfd, welcome, strlen(welcome));
+                write(clientfd, debug, strlen(debug));
+
                 char buffer[128] = {0};
                 read(clientfd, buffer, sizeof(buffer));
-                printf("[UNIX] Comandă primită: %s\n", buffer);
-                write(clientfd, "[Admin] OK\n", 11);
+                buffer[strcspn(buffer, "\n")] = 0;
+                write(clientfd, buffer, strlen(buffer));
+
+                if (strcmp(buffer, "LIST") == 0) {
+                    char response[512];
+                    get_client_list(response, sizeof(response));
+                    write(clientfd, response, strlen(response));
+                }
+                else {
+                    write(clientfd, "OK\n", 4);
+                }
+
                 close(clientfd);
             }
         }

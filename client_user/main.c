@@ -4,11 +4,20 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
 #include "../include/user_interface.h"
 
 #define INCOMING "videos/incoming/"
 #define PROCESSING "videos/processing/"
 #define OUTGOING "videos/outgoing/"
+
+#define SERVER_PORT 5001
+#define SERVER_IP "127.0.0.1"
+
+int sock;
 
 void move_file(const char *src, const char *dest) {
     char command[512];
@@ -20,6 +29,33 @@ void copy_file(const char *src, const char *dest) {
     char command[512];
     snprintf(command, sizeof(command), "cp \"%s\" \"%s\"", src, dest);
     system(command);
+}
+
+int sock_global = -1;
+
+void connect_to_inet_server() {
+    struct sockaddr_in serv_addr;
+
+    sock_global = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_global < 0) {
+        perror("[USER] Eroare la creare socket INET");
+        return;
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &serv_addr.sin_addr);
+
+    if (connect(sock_global, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("[USER] Eroare la conectare");
+        close(sock_global);
+        sock_global = -1;
+        return;
+    }
+
+    const char *msg = "hello_from_rest_wrapper";
+    send(sock_global, msg, strlen(msg), 0);
+
 }
 
 int main() {
@@ -157,6 +193,9 @@ int main() {
             printf("Opțiune invalidă.\n");
         }
     }
+
+    if (sock_global != -1)
+        close(sock_global);
 
     return 0;
 }

@@ -1,4 +1,4 @@
- * Serving Flask app 'app'
- * Debug mode: off
-Address already in use
-Port 5000 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Traceback (most recent call last):
+  File "/mnt/e/PCD/client_rest/app.py", line 1, in <module>
+    from flask import Flask, request, jsonify
+ModuleNotFoundError: No module named 'flask'

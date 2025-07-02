@@ -39,7 +39,7 @@ int main() {
 
     int opt;
     while (1) {
-        print_menu();
+        printMenu();
         if (scanf("%d", &opt) != 1) {
             while (getchar() != '\n');
             continue;
