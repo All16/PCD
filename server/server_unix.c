@@ -69,7 +69,6 @@ void* handle_admin_socket(void* arg) {
                     if (strcmp(buffer, "LIST") == 0) {
                         char response[512] = {0};
                         get_client_list(response, sizeof(response));
-                        printf("[DEBUG] Trimitem client_list:\n%s", response);
                         // Adaugam un newline la final pentru ca read_full_response sa functioneze corect
                         strncat(response, "\n", sizeof(response) - strlen(response) - 1);
                         write(clientfd, response, strlen(response));

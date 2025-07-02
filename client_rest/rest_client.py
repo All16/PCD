@@ -69,7 +69,6 @@ if __name__ == "__main__":
             "resolution": resolution,
             "folder": folder
         }
-        print("[DEBUG] Sending JSON to /concat:", json.dumps(data))
         send_request("change_resolution", data)
 
     elif operation == "cut_except" and len(sys.argv) == 6:

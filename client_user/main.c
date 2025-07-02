@@ -152,7 +152,7 @@ int main() {
 
                     char cmd[512];
                     snprintf(cmd, sizeof(cmd),
-                             "python3 client_rest/rest_client.py change_resolution %s %s processing",
+                             "python3 ../client_rest/rest_client.py change_resolution %s %s processing",
                              filename, resolution);
                     system(cmd);
                 }
@@ -163,7 +163,7 @@ int main() {
 
                     char cmd[512];
                     snprintf(cmd, sizeof(cmd),
-                             "python3 client_rest/rest_client.py cut_except %s %s %s processing",
+                             "python3 ../client_rest/rest_client.py cut_except %s %s %s processing",
                              filename, start, end);
                     system(cmd);
                 }
@@ -175,7 +175,7 @@ int main() {
 
                     char cmd[1024];
                     snprintf(cmd, sizeof(cmd),
-                             "python3 client_rest/rest_client.py speed_segment %s %s %s %s processing",
+                             "python3 ../client_rest/rest_client.py speed_segment %s %s %s %s processing",
                              filename, start, end, factor);
                     system(cmd);
                 }
