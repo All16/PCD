@@ -1,74 +1,60 @@
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> // Adaugat pentru exit()
 #include <pthread.h>
 #include <signal.h>
-#include <unistd.h>
-#include <microhttpd.h>
-#include "../include/common.h"
+#include <unistd.h> // Pentru usleep
 #include "../include/job_queue.h"
-#include "../include/rest_api.h"
 
-volatile sig_atomic_t running = 1;
+// Declaratii pentru functiile din celelalte fisiere
+void* handle_user_clients(void* arg);
+void* handle_admin_socket(void* arg);
+void* start_api_server_thread(void* arg);
+void* worker_thread_func(void* arg);
 
-pthread_t thread_admin, thread_users, thread_jobs, thread_rest_json;
-int admin_socket_fd = -1;
-int user_socket_fd = -1;
+// Variabila globala pentru a opri toate thread-urile elegant
+extern volatile sig_atomic_t running;
 
-void cleanup() {
-    printf("[INFO] Închidere server...\n");
-
+void handle_signal(int signal) {
+    if (running == 0) {
+        // Fortam iesirea daca se apasa Ctrl+C de mai multe ori
+        fprintf(stderr, "\nOprire fortata!\n");
+        exit(1);
+    }
+    printf("\n[SYSTEM] Semnal de oprire primit. Inchidere server...\n");
     running = 0;
-    pthread_cond_broadcast(&not_empty);  // deblochează job_processor dacă așteaptă
-
-    pthread_join(thread_admin, NULL);
-    pthread_join(thread_users, NULL);
-    pthread_join(thread_jobs, NULL);
-    pthread_join(thread_rest_json, NULL);
-
-    if (admin_socket_fd != -1) close(admin_socket_fd);
-    if (user_socket_fd != -1) close(user_socket_fd);
-
+    // Deblocheaza worker-ul daca asteapta un job
     job_queue_destroy();
 }
 
-void sigint_handler(int sig) {
-    printf("\n[CTRL+C] Semnal de închidere primit.\n");
-    running = 0;
-}
-
-extern void* handle_admin_socket(void*);
-extern void* handle_user_clients(void*);
-extern void* job_processor(void*);
-extern void* start_rest_server(void*);
-
-int main() {
-    signal(SIGINT, sigint_handler);
-    printf("[START] Pornim serverul V-Edit...\n");
+int main(int argc, char *argv[]) {
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
 
     job_queue_init();
 
-    if (pthread_create(&thread_admin, NULL, handle_admin_socket, NULL) != 0) exit(1);
-    if (pthread_create(&thread_users, NULL, handle_user_clients, NULL) != 0) exit(1);
-    if (pthread_create(&thread_jobs, NULL, job_processor, NULL) != 0) exit(1);
-    if (pthread_create(&thread_rest_json, NULL, start_rest_server, NULL) != 0) exit(1);
+    pthread_t user_tid, admin_tid, api_tid, worker_tid;
 
-    struct MHD_Daemon* rest_daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, 5000,
-                                   NULL, NULL, &handle_request, NULL,
-                                   MHD_OPTION_END);
-    if (!rest_daemon) {
-        fprintf(stderr, "❌ Eroare: MHD_start_daemon a eșuat!\n");
-        cleanup();
-        return 1;
-    }
+    printf("[SYSTEM] Pornire thread-uri server...\n");
 
-    printf("[REST] Server HTTP REST activ pe port 5000.\n");
+    pthread_create(&user_tid, NULL, handle_user_clients, NULL);
+    pthread_create(&admin_tid, NULL, handle_admin_socket, NULL);
+    pthread_create(&api_tid, NULL, start_api_server_thread, NULL);
+    pthread_create(&worker_tid, NULL, worker_thread_func, NULL);
 
-    pthread_join(thread_admin, NULL);
-    pthread_join(thread_users, NULL);
-    pthread_join(thread_jobs, NULL);
-    pthread_join(thread_rest_json, NULL);
+    // Asteptam terminarea thread-urilor
+    printf("[SYSTEM] Serverul ruleaza. Apasa Ctrl+C pentru a opri.\n");
+    pthread_join(user_tid, NULL);
+    printf("[SYSTEM] Thread-ul INET s-a oprit.\n");
 
-    MHD_stop_daemon(rest_daemon);
-    cleanup();
+    pthread_join(admin_tid, NULL);
+    printf("[SYSTEM] Thread-ul UNIX s-a oprit.\n");
+
+    pthread_join(api_tid, NULL);
+    printf("[SYSTEM] Thread-ul API s-a oprit.\n");
+
+    pthread_join(worker_tid, NULL);
+    printf("[SYSTEM] Thread-ul Worker s-a oprit.\n");
+
+    printf("[SYSTEM] Serverul s-a oprit complet.\n");
     return 0;
 }

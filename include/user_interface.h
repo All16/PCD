@@ -4,5 +4,6 @@
 void print_main_menu();
 void print_edit_menu();
 void get_user_input(char *input, size_t size, const char *prompt);
+void clearScreen();
 
 #endif
