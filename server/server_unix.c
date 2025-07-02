@@ -1,4 +1,3 @@
-// === server/server_unix.c ===
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -44,46 +43,54 @@ void* handle_admin_socket(void* arg) {
 
         int ready = select(sockfd + 1, &fds, NULL, NULL, &timeout);
         if (ready > 0 && FD_ISSET(sockfd, &fds)) {
-            printf("[UNIX] Acceptare conexiune admin...\n");
             clientfd = accept(sockfd, NULL, NULL);
             if (clientfd >= 0) {
                 printf("[UNIX] Client admin acceptat.\n");
                 const char *welcome = "[UNIX] Bine ai venit la interfata admin!\n";
                 write(clientfd, welcome, strlen(welcome));
 
-                char buffer[128];
+                char buffer[256];
                 ssize_t n_read;
-                // Citim comenzi pana cand clientul se deconecteaza (read returneaza <= 0)
                 while ((n_read = read(clientfd, buffer, sizeof(buffer) - 1)) > 0) {
-                    buffer[n_read] = '\0'; // Asiguram terminarea cu null
-                    buffer[strcspn(buffer, "\r\n")] = 0; // Curatam newline de la final
+                    buffer[n_read] = '\0';
+                    buffer[strcspn(buffer, "\r\n")] = 0;
 
                     printf("[UNIX] Am primit comanda: '%s'\n", buffer);
 
-                    // Conditie de iesire pentru a permite clientului sa se deconecteze elegant
                     if (strcmp(buffer, "exit") == 0) {
-                        printf("[UNIX] Clientul admin a cerut deconectarea.\n");
-                        break; // Iesim din bucla de comenzi
+                        break;
                     }
 
                     if (strcmp(buffer, "LIST") == 0) {
-                        char response[512] = {0};
+                        char response[1024] = {0};
                         get_client_list(response, sizeof(response));
-                        // Adaugam un newline la final pentru ca read_full_response sa functioneze corect
                         strncat(response, "\n", sizeof(response) - strlen(response) - 1);
                         write(clientfd, response, strlen(response));
-                    } else {
-                        // Pentru orice alta comanda, trimitem un raspuns generic
+                    }
+                        // ### START MODIFICARE: Logica pentru KICK ###
+                    else if (strncmp(buffer, "KICK ", 5) == 0) {
+                        // Extragem IP-ul de dupa "KICK "
+                        char* ip_to_kick = buffer + 5;
+                        printf("[UNIX] Cerere de deconectare pentru IP: %s\n", ip_to_kick);
+
+                        // Apelam functia care inchide socket-ul si sterge clientul
+                        remove_client_by_ip(ip_to_kick);
+
+                        // Trimitem mesajul de confirmare
+                        char response[128];
+                        snprintf(response, sizeof(response), "Clientul cu IP-ul %s a fost deconectat.\n", ip_to_kick);
+                        write(clientfd, response, strlen(response));
+                    }
+                        // ### END MODIFICARE ###
+                    else {
                         const char* ok_response = "OK\n";
                         write(clientfd, ok_response, strlen(ok_response));
                     }
-                    memset(buffer, 0, sizeof(buffer)); // Golim bufferul pentru urmatoarea comanda
+                    memset(buffer, 0, sizeof(buffer));
                 }
 
-                // Dupa ce bucla se termina (client deconectat sau comanda 'exit'), inchidem socket-ul
                 printf("[UNIX] Inchidere conexiune admin.\n");
                 close(clientfd);
-                // ### END MODIFICARE ###
             }
         }
     }
@@ -92,8 +99,3 @@ void* handle_admin_socket(void* arg) {
     printf("[UNIX] Fir UNIX oprit curat.\n");
     pthread_exit(NULL);
 }
-
-/*int main() {
-    handle_admin_socket(NULL);
-    return 0;
-}*/
