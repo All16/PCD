@@ -55,18 +55,24 @@ int process_command(int sock_fd, int option) {
         }
     }
 
+    // Trimitem comanda catre server
     if (write(sock_fd, cmd, strlen(cmd)) <= 0 || write(sock_fd, "\n", 1) <= 0) {
         perror("[ADMIN] Eroare la trimiterea comenzii \n");
         return -1;
     }
 
+    // ### START MODIFICARE: Eliminam citirea de aici ###
+    // Citirea se va face acum doar in bucla principala din main.c
+    /*
     char buffer[BUFFER_SIZE] = {0};
     if (read(sock_fd, buffer, sizeof(buffer) - 1) <= 0) {
         perror("[ADMIN] Eroare la citirea raspunsului \n");
         return -1;
     }
-
     printf("[SERVER] %s", buffer);
+    */
+    // ### END MODIFICARE ###
+
     return 0;
 }
 

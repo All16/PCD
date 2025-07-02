@@ -51,21 +51,40 @@ void* handle_admin_socket(void* arg) {
                 const char *welcome = "[UNIX] Bine ai venit la interfata admin!\n";
                 write(clientfd, welcome, strlen(welcome));
 
-                char buffer[128] = {0};
-                read(clientfd, buffer, sizeof(buffer));
-                buffer[strcspn(buffer, "\n")] = 0;
+                char buffer[128];
+                ssize_t n_read;
+                // Citim comenzi pana cand clientul se deconecteaza (read returneaza <= 0)
+                while ((n_read = read(clientfd, buffer, sizeof(buffer) - 1)) > 0) {
+                    buffer[n_read] = '\0'; // Asiguram terminarea cu null
+                    buffer[strcspn(buffer, "\r\n")] = 0; // Curatam newline de la final
 
-                if (strcmp(buffer, "LIST") == 0) {
-                    char response[512] = {0};
-                    get_client_list(response, sizeof(response));
-                    printf("[DEBUG] Trimitem client_list:\n%s", response);
-                    write(clientfd, response, strlen(response));
-                }
-                else {
-                    write(clientfd, "OK\n", 4);
+                    printf("[UNIX] Am primit comanda: '%s'\n", buffer);
+
+                    // Conditie de iesire pentru a permite clientului sa se deconecteze elegant
+                    if (strcmp(buffer, "exit") == 0) {
+                        printf("[UNIX] Clientul admin a cerut deconectarea.\n");
+                        break; // Iesim din bucla de comenzi
+                    }
+
+                    if (strcmp(buffer, "LIST") == 0) {
+                        char response[512] = {0};
+                        get_client_list(response, sizeof(response));
+                        printf("[DEBUG] Trimitem client_list:\n%s", response);
+                        // Adaugam un newline la final pentru ca read_full_response sa functioneze corect
+                        strncat(response, "\n", sizeof(response) - strlen(response) - 1);
+                        write(clientfd, response, strlen(response));
+                    } else {
+                        // Pentru orice alta comanda, trimitem un raspuns generic
+                        const char* ok_response = "OK\n";
+                        write(clientfd, ok_response, strlen(ok_response));
+                    }
+                    memset(buffer, 0, sizeof(buffer)); // Golim bufferul pentru urmatoarea comanda
                 }
 
+                // Dupa ce bucla se termina (client deconectat sau comanda 'exit'), inchidem socket-ul
+                printf("[UNIX] Inchidere conexiune admin.\n");
                 close(clientfd);
+                // ### END MODIFICARE ###
             }
         }
     }
