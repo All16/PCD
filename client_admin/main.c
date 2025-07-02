@@ -108,6 +108,12 @@ int main() {
 
         // Asteptam putin ca serverul sa proceseze si sa trimita raspunsul
         usleep(100000); // 100ms
+
+        // ### START MODIFICARE ###
+        // Curatam ecranul inainte de a afisa raspunsul
+        clearScreen();
+        // ### END MODIFICARE ###
+
         read_full_response(sock_fd);
     }
 
