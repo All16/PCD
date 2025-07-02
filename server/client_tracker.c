@@ -15,8 +15,6 @@ void add_client(const char *ip, int sock_fd) {
         strncpy(client_list[client_count].ip, ip, INET_ADDRSTRLEN);
         client_list[client_count].socket_fd = sock_fd;
         client_count++;
-        printf("[DEBUG] add_client: ip argument='%s', salvat='%s', count=%d\n",
-               ip, client_list[client_count - 1].ip, client_count);
     }
     pthread_mutex_unlock(&client_mutex);
 }
@@ -38,8 +36,6 @@ void remove_client_by_ip(const char *ip) {
 
 void get_client_list(char *dest_buffer, size_t max_len) {
     pthread_mutex_lock(&client_mutex);
-    const char * debug = "getclientlist apelat";
-    strncat(dest_buffer, debug, strlen(debug));
     snprintf(dest_buffer, max_len, "Utilizatori activi:\n");
     for (int i = 0; i < client_count; ++i) {
         strncat(dest_buffer, " - ", max_len - strlen(dest_buffer) - 1);

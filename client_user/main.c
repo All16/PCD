@@ -10,9 +10,9 @@
 
 #include "../include/user_interface.h"
 
-#define INCOMING "videos/incoming/"
-#define PROCESSING "videos/processing/"
-#define OUTGOING "videos/outgoing/"
+#define INCOMING "../videos/incoming/"
+#define PROCESSING "../videos/processing/"
+#define OUTGOING "../videos/outgoing/"
 
 #define SERVER_PORT 5001
 #define SERVER_IP "127.0.0.1"

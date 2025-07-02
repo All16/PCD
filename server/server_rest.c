@@ -117,7 +117,7 @@ void* worker_thread_func(void* arg) {
             char command_str[1024];
             // TODO: Construieste comanda `ffmpeg` pe baza `current_job`
             // Exemplu:
-            snprintf(command_str, sizeof(command_str), "ffmpeg -y -i videos/processing/%s -q:a 0 -map a videos/outgoing/%s.mp3",
+            snprintf(command_str, sizeof(command_str), "ffmpeg -y -i ../videos/processing/%s -q:a 0 -map a ../videos/outgoing/%s.mp3",
                      current_job.input_file, current_job.input_file);
 
             printf("[WORKER] Execut: %s\n", command_str);
