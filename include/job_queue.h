@@ -2,23 +2,27 @@
 #define JOB_QUEUE_H
 
 #include <pthread.h>
+#include <stddef.h>
 
-#define MAX_JOBS 100
-
-// Structura unui job (poți adăuga mai multe câmpuri ulterior)
-typedef struct {
-    char input_file[256];
-    char command[64];     // ex: "cut", "convert"
-    char args[256];       // ex: "00:00:10 00:00:20"
-    char output_file[256];
-    int client_socket;    // socketul clientului care a trimis comanda
+// Structura care defineste un job de procesare
+typedef struct Job {
+    char command[64];
+    char input_file[512];
+    char input_file2[512];
+    char output_file[512];
+    char args[256];
 } Job;
 
-// Prototipuri funcții
+// Functiile existente
 void job_queue_init();
 void job_queue_destroy();
 int job_queue_enqueue(Job job);
 int job_queue_dequeue(Job* job_out);
-extern pthread_cond_t not_empty;
 
-#endif
+// Functia noua pentru a obtine lista de job-uri
+void get_job_list(char *dest_buffer, size_t max_len);
+
+// Functia pentru a semnala terminarea unui job
+void job_queue_clear_processing_job();
+
+#endif // JOB_QUEUE_H

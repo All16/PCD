@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include "../include/client_tracker.h"
+#include "../include/job_queue.h" // Adaugat pentru a avea acces la get_job_list
 
 #define UNIX_SOCKET_PATH "/tmp/vedit_admin_socket"
 
@@ -67,23 +68,24 @@ void* handle_admin_socket(void* arg) {
                         strncat(response, "\n", sizeof(response) - strlen(response) - 1);
                         write(clientfd, response, strlen(response));
                     }
-                        // ### START MODIFICARE: Logica pentru KICK ###
+                        // ### START MODIFICARE: Logica pentru JOBS ###
+                    else if (strcmp(buffer, "JOBS") == 0) {
+                        char response[4096] = {0}; // Buffer mai mare pentru lista de job-uri
+                        get_job_list(response, sizeof(response));
+                        // get_job_list adauga deja \n la final, daca e cazul
+                        write(clientfd, response, strlen(response));
+                    }
+                        // ### END MODIFICARE ###
                     else if (strncmp(buffer, "KICK ", 5) == 0) {
-                        // Extragem IP-ul de dupa "KICK "
                         char* ip_to_kick = buffer + 5;
                         printf("[UNIX] Cerere de deconectare pentru IP: %s\n", ip_to_kick);
-
-                        // Apelam functia care inchide socket-ul si sterge clientul
                         remove_client_by_ip(ip_to_kick);
-
-                        // Trimitem mesajul de confirmare
                         char response[128];
                         snprintf(response, sizeof(response), "Clientul cu IP-ul %s a fost deconectat.\n", ip_to_kick);
                         write(clientfd, response, strlen(response));
                     }
-                        // ### END MODIFICARE ###
                     else {
-                        const char* ok_response = "OK\n";
+                        const char* ok_response = "Comanda necunoscuta.\n";
                         write(clientfd, ok_response, strlen(ok_response));
                     }
                     memset(buffer, 0, sizeof(buffer));
