@@ -6,7 +6,6 @@ void clearScreen() {
     printf("\033[2J\033[1;1H");
 }
 void printMenu() {
-    clearScreen();
     printf("\n==== MENIU ADMIN ====\n");
     printf("1. Lista clienti activi\n");
     printf("2. Lista joburi active\n");

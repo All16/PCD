@@ -15,7 +15,7 @@
 #include "../include/job_queue.h"
 #include "../include/rest_api.h"
 
-#define INCOMING_FOLDER "videos/incoming/"
+#define INCOMING_FOLDER "../videos/incoming/"
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define BUF_LEN (1024 * (EVENT_SIZE + NAME_MAX + 1))
 #define PORT 5000

@@ -44,21 +44,21 @@ void* handle_admin_socket(void* arg) {
 
         int ready = select(sockfd + 1, &fds, NULL, NULL, &timeout);
         if (ready > 0 && FD_ISSET(sockfd, &fds)) {
+            printf("[UNIX] Acceptare conexiune admin...\n");
             clientfd = accept(sockfd, NULL, NULL);
             if (clientfd >= 0) {
+                printf("[UNIX] Client admin acceptat.\n");
                 const char *welcome = "[UNIX] Bine ai venit la interfata admin!\n";
-                const char *debug = "[UNIX] Aștept comanda de la admin client...\n";
                 write(clientfd, welcome, strlen(welcome));
-                write(clientfd, debug, strlen(debug));
 
                 char buffer[128] = {0};
                 read(clientfd, buffer, sizeof(buffer));
                 buffer[strcspn(buffer, "\n")] = 0;
-                write(clientfd, buffer, strlen(buffer));
 
                 if (strcmp(buffer, "LIST") == 0) {
-                    char response[512];
+                    char response[512] = {0};
                     get_client_list(response, sizeof(response));
+                    printf("[DEBUG] Trimitem client_list:\n%s", response);
                     write(clientfd, response, strlen(response));
                 }
                 else {
@@ -74,3 +74,8 @@ void* handle_admin_socket(void* arg) {
     printf("[UNIX] Fir UNIX oprit curat.\n");
     pthread_exit(NULL);
 }
+
+/*int main() {
+    handle_admin_socket(NULL);
+    return 0;
+}*/

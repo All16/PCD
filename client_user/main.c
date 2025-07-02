@@ -10,9 +10,9 @@
 
 #include "../include/user_interface.h"
 
-#define INCOMING "videos/incoming/"
-#define PROCESSING "videos/processing/"
-#define OUTGOING "videos/outgoing/"
+#define INCOMING "../videos/incoming/"
+#define PROCESSING "../videos/processing/"
+#define OUTGOING "../videos/outgoing/"
 
 #define SERVER_PORT 5001
 #define SERVER_IP "127.0.0.1"
@@ -68,6 +68,7 @@ int main() {
         getchar();  // elimină newline
 
         if (opt == 1) {
+            connect_to_inet_server();
             get_user_input(filename, sizeof(filename), "Nume fișier video: ");
 
             char source_path[512], processing_path[512];
@@ -138,19 +139,17 @@ int main() {
                     system(cmd);
                 }
                 else if (subopt == 6) {  // Speed segment
-    char start[64], end[64], factor[16];
-    get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
-    get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
-    get_user_input(factor, sizeof(factor), "Factor (ex: 2.0 pentru accelerare, 0.5 pentru încetinire): ");
+                    char start[64], end[64], factor[16];
+                    get_user_input(start, sizeof(start), "Start time (ex: 00:00:10): ");
+                    get_user_input(end, sizeof(end), "End time (ex: 00:00:20): ");
+                    get_user_input(factor, sizeof(factor), "Factor (ex: 2.0 pentru accelerare, 0.5 pentru încetinire): ");
 
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd),
-        "python3 client_rest/rest_client.py speed_segment %s %s %s %s processing",
-        filename, start, end, factor);
-    system(cmd);
-}
-
-
+                    char cmd[1024];
+                    snprintf(cmd, sizeof(cmd),
+                        "python3 client_rest/rest_client.py speed_segment %s %s %s %s processing",
+                        filename, start, end, factor);
+                    system(cmd);
+                }
                 else if (subopt == 0) {
                     // La final, mută fișierul principal în outgoing
                     char proc_path[512], final_path[512];
@@ -177,25 +176,19 @@ int main() {
                         move_file(mp3_proc, mp3_out);
                         printf("[INFO] Fișier audio mutat în outgoing: %s\n", mp3_out);
                     }
-
                     break;
                 }
                 else {
                     printf("Opțiune invalidă.\n");
                 }
             }
-        }
-        else if (opt == 2) {
+        } else if (opt == 2) {
             printf("Ieșire.\n");
             break;
-        }
+            }
         else {
             printf("Opțiune invalidă.\n");
         }
     }
-
-    if (sock_global != -1)
-        close(sock_global);
-
     return 0;
 }

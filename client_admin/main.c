@@ -5,10 +5,28 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+
 #include "../include/admin_interface.h"
 #include "../include/admin_commands.h"
 
 #define ADMIN_SOCKET_PATH "/tmp/vedit_admin_socket"
+
+//extern volatile sig_atomic_t running;
+
+void read_full_response(int sock_fd) {
+    char buffer[1024];
+    ssize_t total = 0;
+    ssize_t n;
+
+    while ((n = read(sock_fd, buffer + total, sizeof(buffer) - total - 1)) > 0) {
+        total += n;
+        if (total >= sizeof(buffer) - 1) break;
+        if (buffer[total - 1] == '\n') break;  // simplă condiție de oprire
+    }
+
+    buffer[total] = '\0';
+    printf("[SERVER] %s\n", buffer);
+}
 
 int main() {
     int sock_fd;
@@ -30,10 +48,7 @@ int main() {
         return 1;
     }
 
-    char buffer[256] = {0};
-    if (read(sock_fd, buffer, sizeof(buffer) - 1) > 0) {
-        printf("%s", buffer);
-    }
+    read_full_response(sock_fd);  // citește mesajul de bun venit
 
     while (!handleLogin());
 
@@ -50,6 +65,8 @@ int main() {
             break;
         if (opt == 4)
             break;
+
+        read_full_response(sock_fd);  // citește după fiecare comandă
     }
 
     close(sock_fd);

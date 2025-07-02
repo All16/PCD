@@ -1,0 +1,1 @@
+./scripts/start_server.sh: line 5: ./bin/server: No such file or directory

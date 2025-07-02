@@ -51,8 +51,10 @@ void* handle_user_clients(void* arg) {
                 char ip_str[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
                 printf("[INET] Conectat client: %s\n", ip_str);
+
                 add_client(ip_str, client_fd);
 
+                printf("[INET] Clienti conectati: %d\n", client_count);
                 char buffer[256] = {0};
                 int n = read(client_fd, buffer, sizeof(buffer));
                 if (n > 0) {
@@ -72,3 +74,8 @@ void* handle_user_clients(void* arg) {
     printf("[INET] Fir INET oprit curat.\n");
     pthread_exit(NULL);
 }
+
+/*int main() {
+    handle_user_clients(NULL);
+    return 0;
+}*/
