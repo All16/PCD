@@ -1,0 +1,6 @@
+[2025-07-02 16:06:22] [JOB] Procesare job: extract_audio videos/processing/test.mp4 -> videos/processing/test.mp3
+[2025-07-02 16:06:22] [PROC] Execut extract_audio videos/processing/test.mp4 -> videos/processing/test.mp3
+[2025-07-02 16:10:32] [JOB] Procesare job: extract_audio videos/processing/test.mp4 -> videos/processing/test.mp3
+[2025-07-02 16:10:32] [PROC] Execut extract_audio videos/processing/test.mp4 -> videos/processing/test.mp3
+[2025-07-02 16:13:25] [JOB] Procesare job: extract_audio videos/processing/test.mp4 -> videos/processing/test.mp3
+[2025-07-02 16:13:25] [PROC] Execut extract_audio videos/processing/test.mp4 -> videos/processing/test.mp3

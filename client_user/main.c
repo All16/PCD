@@ -10,14 +10,15 @@
 
 #include "../include/user_interface.h"
 
-#define INCOMING "../videos/incoming/"
-#define PROCESSING "../videos/processing/"
-#define OUTGOING "../videos/outgoing/"
+#define INCOMING "videos/incoming/"
+#define PROCESSING "videos/processing/"
+#define OUTGOING "videos/outgoing/"
 
 #define SERVER_PORT 5001
 #define SERVER_IP "127.0.0.1"
 
-int sock;
+// Socket-ul global pentru a fi accesibil in toata aplicatia
+int sock_global = -1;
 
 void move_file(const char *src, const char *dest) {
     char command[512];
@@ -31,7 +32,18 @@ void copy_file(const char *src, const char *dest) {
     system(command);
 }
 
-int sock_global = -1;
+// ### START MODIFICARE: Functie noua pentru a crea directoarele ###
+/**
+ * @brief Creeaza directoarele necesare pentru stocarea video, daca nu exista.
+ * Foloseste 'mkdir -p' pentru a evita erorile daca directoarele exista deja.
+ */
+void create_directories() {
+    printf("[INFO] Asigurare existență directoare video...\n");
+    system("mkdir -p " INCOMING);
+    system("mkdir -p " PROCESSING);
+    system("mkdir -p " OUTGOING);
+}
+// ### END MODIFICARE ###
 
 void connect_to_inet_server() {
     struct sockaddr_in serv_addr;
@@ -49,26 +61,43 @@ void connect_to_inet_server() {
     if (connect(sock_global, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("[USER] Eroare la conectare");
         close(sock_global);
-        sock_global = -1;
+        sock_global = -1; // Marcam conexiunea ca esuata
         return;
     }
 
-    const char *msg = "hello_from_rest_wrapper";
+    // Trimitem un mesaj initial pentru a ne inregistra la server
+    const char *msg = "hello_from_rest_wrapper\n";
     send(sock_global, msg, strlen(msg), 0);
-
 }
 
 int main() {
     char filename[256];
     int opt;
 
+    // ### START MODIFICARE: Apelam functia de creare a directoarelor la inceput ###
+    create_directories();
+    // ### END MODIFICARE ###
+
+    printf("[INFO] Conectare la server...\n");
+    connect_to_inet_server();
+
+    // Verificam daca conexiunea a reusit. Daca nu, oprim programul.
+    if (sock_global < 0) {
+        printf("[EROARE] Nu s-a putut stabili conexiunea cu serverul. Programul se va inchide.\n");
+        return 1;
+    }
+    printf("[INFO] Conectare reusita!\n");
+
+
     while (1) {
         print_main_menu();  // afișează: 1. Edit video, 2. Exit
-        scanf("%d", &opt);
+        if(scanf("%d", &opt) != 1) {
+            while(getchar()!='\n'); // Curatam buffer-ul
+            opt = -1; // Setam o optiune invalida
+        }
         getchar();  // elimină newline
 
         if (opt == 1) {
-            connect_to_inet_server();
             get_user_input(filename, sizeof(filename), "Nume fișier video: ");
 
             char source_path[512], processing_path[512];
@@ -92,15 +121,15 @@ int main() {
 
                     char cmd[512];
                     snprintf(cmd, sizeof(cmd),
-                        "python3 client_rest/rest_client.py cut %s %s %s processing",
-                        filename, start, end);
+                             "python3 ../client_rest/rest_client.py cut %s %s %s processing",
+                             filename, start, end);
                     system(cmd);
                 }
                 else if (subopt == 2) {  // Extract audio
                     char cmd[512];
                     snprintf(cmd, sizeof(cmd),
-                        "python3 client_rest/rest_client.py extract_audio %s processing",
-                        filename);
+                             "python3 ../client_rest/rest_client.py extract_audio %s processing",
+                             filename);
                     system(cmd);
                 }
                 else if (subopt == 3) {  // Concat
@@ -108,8 +137,8 @@ int main() {
                     get_user_input(file2, sizeof(file2), "Al doilea fișier (din incoming): ");
                     char cmd[1024];
                     snprintf(cmd, sizeof(cmd),
-                            "python3 client_rest/rest_client.py concat %s %s processing",
-                            filename, file2);
+                             "python3 ../client_rest/rest_client.py concat %s %s processing",
+                             filename, file2);
                     system(cmd);
 
                 }
@@ -123,8 +152,8 @@ int main() {
 
                     char cmd[512];
                     snprintf(cmd, sizeof(cmd),
-                        "python3 client_rest/rest_client.py change_resolution %s %s processing",
-                        filename, resolution);
+                             "python3 client_rest/rest_client.py change_resolution %s %s processing",
+                             filename, resolution);
                     system(cmd);
                 }
                 else if (subopt == 5) {  // Cut Except
@@ -134,8 +163,8 @@ int main() {
 
                     char cmd[512];
                     snprintf(cmd, sizeof(cmd),
-                        "python3 client_rest/rest_client.py cut_except %s %s %s processing",
-                        filename, start, end);
+                             "python3 client_rest/rest_client.py cut_except %s %s %s processing",
+                             filename, start, end);
                     system(cmd);
                 }
                 else if (subopt == 6) {  // Speed segment
@@ -146,8 +175,8 @@ int main() {
 
                     char cmd[1024];
                     snprintf(cmd, sizeof(cmd),
-                        "python3 client_rest/rest_client.py speed_segment %s %s %s %s processing",
-                        filename, start, end, factor);
+                             "python3 client_rest/rest_client.py speed_segment %s %s %s %s processing",
+                             filename, start, end, factor);
                     system(cmd);
                 }
                 else if (subopt == 0) {
@@ -184,8 +213,9 @@ int main() {
             }
         } else if (opt == 2) {
             printf("Ieșire.\n");
+            close(sock_global); // Inchidem conexiunea la iesire
             break;
-            }
+        }
         else {
             printf("Opțiune invalidă.\n");
         }
