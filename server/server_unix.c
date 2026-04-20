@@ -14,9 +14,100 @@
 
 extern volatile sig_atomic_t running;
 
-void* handle_admin_socket(void* arg) {
-    int sockfd, clientfd;
+static int create_admin_socket(void) {
+    unlink(UNIX_SOCKET_PATH);
+
+    int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("[UNIX] socket failed");
+        return -1;
+    }
+
+    if (fcntl(sockfd, F_SETFL, O_NONBLOCK) < 0) {
+        perror("[UNIX] fcntl failed");
+        close(sockfd);
+        return -1;
+    }
+
     struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, UNIX_SOCKET_PATH, sizeof(addr.sun_path) - 1);
+
+    if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("[UNIX] bind failed");
+        close(sockfd);
+        return -1;
+    }
+
+    if (listen(sockfd, 1) < 0) {
+        perror("[UNIX] listen failed");
+        close(sockfd);
+        return -1;
+    }
+
+    return sockfd;
+}
+
+static int handle_admin_command(int clientfd, char *buffer) {
+    if (strcmp(buffer, "exit") == 0) {
+        return 0;
+    }
+
+    if (strcmp(buffer, "LIST") == 0) {
+        char response[1024] = {0};
+        get_client_list(response, sizeof(response));
+        strncat(response, "\n", sizeof(response) - strlen(response) - 1);
+        write(clientfd, response, strlen(response));
+        return 1;
+    }
+
+    if (strcmp(buffer, "JOBS") == 0) {
+        char response[4096] = {0};
+        get_job_list(response, sizeof(response));
+        write(clientfd, response, strlen(response));
+        return 1;
+    }
+
+    if (strncmp(buffer, "KICK ", 5) == 0) {
+        char* ip_to_kick = buffer + 5;
+        printf("[UNIX] Cerere de deconectare pentru IP: %s\n", ip_to_kick);
+        remove_client_by_ip(ip_to_kick);
+        char response[128];
+        snprintf(response, sizeof(response), "Clientul cu IP-ul %s a fost deconectat.\n", ip_to_kick);
+        write(clientfd, response, strlen(response));
+        return 1;
+    }
+
+    const char* ok_response = "Comanda necunoscuta.\n";
+    write(clientfd, ok_response, strlen(ok_response));
+    return 1;
+}
+
+static void process_admin_client(int clientfd) {
+    printf("[UNIX] Client admin acceptat.\n");
+    const char *welcome = "[UNIX] Bine ai venit la interfata admin!\n";
+    write(clientfd, welcome, strlen(welcome));
+
+    char buffer[256];
+    ssize_t n_read;
+    while ((n_read = read(clientfd, buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[n_read] = '\0';
+        buffer[strcspn(buffer, "\r\n")] = 0;
+
+        printf("[UNIX] Am primit comanda: '%s'\n", buffer);
+        if (!handle_admin_command(clientfd, buffer)) {
+            break;
+        }
+
+        memset(buffer, 0, sizeof(buffer));
+    }
+
+    printf("[UNIX] Inchidere conexiune admin.\n");
+    close(clientfd);
+}
+
+void* handle_admin_socket(void* arg) {
 
     unlink(UNIX_SOCKET_PATH);
     sockfd = socket(AF_UNIX, SOCK_STREAM, 0);

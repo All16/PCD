@@ -37,27 +37,84 @@ void* handle_client_connection(void* arg) {
     pthread_exit(NULL);
 }
 
-void* handle_user_clients(void* arg) {
-    int server_fd, client_fd;
-    struct sockaddr_in addr;
+static int create_server_socket(void) {
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("[INET] socket failed");
+        return -1;
+    }
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    // Setam socket-ul non-blocant pentru a putea folosi select()
-    fcntl(server_fd, F_SETFL, O_NONBLOCK);
+    if (fcntl(server_fd, F_SETFL, O_NONBLOCK) < 0) {
+        perror("[INET] fcntl failed");
+        close(server_fd);
+        return -1;
+    }
 
     int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("[INET] setsockopt failed");
+        close(server_fd);
+        return -1;
+    }
 
+    struct sockaddr_in addr = {0};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("[INET] bind failed");
+        close(server_fd);
+        return -1;
+    }
+
+    if (listen(server_fd, 10) < 0) {
+        perror("[INET] listen failed");
+        close(server_fd);
+        return -1;
+    }
+
+    return server_fd;
+}
+
+static void accept_new_client(int server_fd) {
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
+    if (client_fd < 0) {
+        return;
+    }
+
+    thread_client_info_t* client_info = malloc(sizeof(thread_client_info_t));
+    if (!client_info) {
+        perror("[INET] malloc failed");
+        close(client_fd);
+        return;
+    }
+
+    client_info->socket_fd = client_fd;
+    inet_ntop(AF_INET, &client_addr.sin_addr, client_info->ip_str, sizeof(client_info->ip_str));
+
+    printf("[INET] Conectat client: %s. Pornire thread dedicat.\n", client_info->ip_str);
+    add_client(client_info->ip_str, client_info->socket_fd);
+
+    pthread_t client_thread;
+    if (pthread_create(&client_thread, NULL, handle_client_connection, client_info) != 0) {
+        perror("pthread_create failed");
+        free(client_info);
+        close(client_fd);
+        return;
+    }
+
+    pthread_detach(client_thread);
+}
+
+void* handle_user_clients(void* arg) {
+    int server_fd = create_server_socket();
+    if (server_fd < 0) {
         pthread_exit(NULL);
     }
 
-    listen(server_fd, 10);
     printf("[INET] Server INET user ascultă pe port %d\n", PORT);
 
     fd_set fds;
@@ -69,32 +126,16 @@ void* handle_user_clients(void* arg) {
         timeout.tv_sec = 1; // Timeout de 1 secunda
         timeout.tv_usec = 0;
 
-        // Asteptam non-blocant pentru conexiuni noi
         int ready = select(server_fd + 1, &fds, NULL, NULL, &timeout);
-
-        if (ready > 0 && FD_ISSET(server_fd, &fds)) {
-            struct sockaddr_in client_addr;
-            socklen_t client_len = sizeof(client_addr);
-            client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
-
-            if (client_fd >= 0) {
-                thread_client_info_t* client_info = malloc(sizeof(thread_client_info_t));
-                client_info->socket_fd = client_fd;
-                inet_ntop(AF_INET, &client_addr.sin_addr, client_info->ip_str, sizeof(client_info->ip_str));
-
-                printf("[INET] Conectat client: %s. Pornire thread dedicat.\n", client_info->ip_str);
-                add_client(client_info->ip_str, client_info->socket_fd);
-
-                pthread_t client_thread;
-                if (pthread_create(&client_thread, NULL, handle_client_connection, client_info) != 0) {
-                    perror("pthread_create failed");
-                    free(client_info);
-                    close(client_fd);
-                }
-                pthread_detach(client_thread);
-            }
+        if (ready <= 0) {
+            continue;
         }
-        // Daca ready == 0 (timeout) sau ready < 0 (eroare), bucla se reia si verifica 'running'
+
+        if (!FD_ISSET(server_fd, &fds)) {
+            continue;
+        }
+
+        accept_new_client(server_fd);
     }
 
     close(server_fd);
