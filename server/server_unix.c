@@ -107,18 +107,22 @@ static void process_admin_client(int clientfd) {
     close(clientfd);
 }
 
+static int accept_admin_client(int sockfd) {
+    int clientfd = accept(sockfd, NULL, NULL);
+    if (clientfd < 0) {
+        return -1;
+    }
+
+    process_admin_client(clientfd);
+    return clientfd;
+}
+
 void* handle_admin_socket(void* arg) {
-
-    unlink(UNIX_SOCKET_PATH);
-    sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-    fcntl(sockfd, F_SETFL, O_NONBLOCK);
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, UNIX_SOCKET_PATH, sizeof(addr.sun_path) - 1);
-
-    bind(sockfd, (struct sockaddr*)&addr, sizeof(addr));
-    listen(sockfd, 1);
+    int sockfd = create_admin_socket();
+    if (sockfd < 0) {
+        pthread_exit(NULL);
+        return NULL;
+    }
 
     printf("[UNIX] Server UNIX admin asculta pe %s\n", UNIX_SOCKET_PATH);
 
@@ -134,58 +138,15 @@ void* handle_admin_socket(void* arg) {
         timeout.tv_usec = 0;
 
         int ready = select(sockfd + 1, &fds, NULL, NULL, &timeout);
-        if (ready > 0 && FD_ISSET(sockfd, &fds)) {
-            clientfd = accept(sockfd, NULL, NULL);
-            if (clientfd >= 0) {
-                printf("[UNIX] Client admin acceptat.\n");
-                const char *welcome = "[UNIX] Bine ai venit la interfata admin!\n";
-                write(clientfd, welcome, strlen(welcome));
-
-                char buffer[256];
-                ssize_t n_read;
-                while ((n_read = read(clientfd, buffer, sizeof(buffer) - 1)) > 0) {
-                    buffer[n_read] = '\0';
-                    buffer[strcspn(buffer, "\r\n")] = 0;
-
-                    printf("[UNIX] Am primit comanda: '%s'\n", buffer);
-
-                    if (strcmp(buffer, "exit") == 0) {
-                        break;
-                    }
-
-                    if (strcmp(buffer, "LIST") == 0) {
-                        char response[1024] = {0};
-                        get_client_list(response, sizeof(response));
-                        strncat(response, "\n", sizeof(response) - strlen(response) - 1);
-                        write(clientfd, response, strlen(response));
-                    }
-                        // ### START MODIFICARE: Logica pentru JOBS ###
-                    else if (strcmp(buffer, "JOBS") == 0) {
-                        char response[4096] = {0}; // Buffer mai mare pentru lista de job-uri
-                        get_job_list(response, sizeof(response));
-                        // get_job_list adauga deja \n la final, daca e cazul
-                        write(clientfd, response, strlen(response));
-                    }
-                        // ### END MODIFICARE ###
-                    else if (strncmp(buffer, "KICK ", 5) == 0) {
-                        char* ip_to_kick = buffer + 5;
-                        printf("[UNIX] Cerere de deconectare pentru IP: %s\n", ip_to_kick);
-                        remove_client_by_ip(ip_to_kick);
-                        char response[128];
-                        snprintf(response, sizeof(response), "Clientul cu IP-ul %s a fost deconectat.\n", ip_to_kick);
-                        write(clientfd, response, strlen(response));
-                    }
-                    else {
-                        const char* ok_response = "Comanda necunoscuta.\n";
-                        write(clientfd, ok_response, strlen(ok_response));
-                    }
-                    memset(buffer, 0, sizeof(buffer));
-                }
-
-                printf("[UNIX] Inchidere conexiune admin.\n");
-                close(clientfd);
-            }
+        if (ready <= 0) {
+            continue;
         }
+
+        if (!FD_ISSET(sockfd, &fds)) {
+            continue;
+        }
+
+        accept_admin_client(sockfd);
     }
 
     close(sockfd);
